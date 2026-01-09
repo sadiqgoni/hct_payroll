@@ -8,6 +8,7 @@
 
     @php
         $payroll_date=$payrolls->first();
+        $deductions = \App\Models\Deduction::where('status', 1)->orderBy('id')->get();
     @endphp
     <tr> <th colspan="20">Payroll Sheet for All Staff – @if($payrolls->count() > 0)
                 {{$payroll_date[0]['salary_month']}}, {{$payroll_date[0]['salary_year']}}@endif</th></tr>
@@ -32,17 +33,9 @@
        <th>Shift Allow  </th>
        <th> Other Allow1</th>
        <th>Other Allow2</th>
-       <th>Paye</th>
-       <th> Pension</th>
-       <th>NHF</th>
-       <th> Union 1 Dd</th>
-       <th>SAL DED</th>
-       <th> FUHSNICS</th>
-       <th>ANUPA</th>
-       <th> Page Loans </th>
-       <th>Other Ded1 </th>
-       <th>Other Ded2</th>
-       <th>Union 2 Dd </th>
+       @foreach($deductions as $deduction)
+           <th>{{ $deduction->deduction_name }}</th>
+       @endforeach
        <th>Bank Name </th>
        <th> Acc No</th>
        <th>Gross </th>
@@ -56,23 +49,16 @@
         $counter=1;
     @endphp
 
-    @forelse($payrolls as $key=>$payroll)
-        @php
-            $reports=$payroll;
-            $group=$payroll->first();
+    {{-- Continuous listing without departmental separation --}}
+    @php
+        $allReports = collect();
+        foreach($payrolls as $payroll) {
+            $allReports = $allReports->merge($payroll);
+        }
+    @endphp
 
-            $a=$group[$name_search];
-        @endphp
-
-
-{{--        <tr style="border:0 !important">--}}
-{{--            <td colspan="21" style="padding: 0;border:0 !important;text-align: left;text-transform: capitalize" > <h3 style="font-size: 12px;margin:20px 0 0 0 !important;">--}}
-{{--                    <span style="text-transform: capitalize">  {{$name}}:</span> {{$a}}</h3></td>--}}
-{{--        </tr>--}}
-
-
-        <tbody>
-        @forelse($reports as $index=>$report)
+    <tbody>
+    @forelse($allReports as $index=>$report)
             @php
                 $emp=\App\Models\EmployeeProfile::where('staff_number',$report->pf_number)->first();
             @endphp
@@ -97,36 +83,21 @@
                 <td>{{number_format($report->A7,2)}} </td>
                 <td> {{number_format($report->A8,2)}}</td>
                 <td>{{number_format($report->A9,2)}}</td>
-                <td>{{number_format($report->D1,2)}} </td>
-                <td> {{number_format($report->D2,2)}}</td>
-                <td>{{number_format($report->D3,2)}} </td>
-                <td> {{number_format($report->D4,2)}}</td>
-                <td>{{number_format($report->D5,2)}} </td>
-                <td> {{number_format($report->D6,2)}}</td>
-                <td>{{number_format($report->D7,2)}} </td>
-                <td> {{number_format($report->D8,2)}}</td>
-                <td>{{number_format($report->D9,2)}} </td>
-                <td> {{number_format($report->D10,2)}}</td>
-                <td>{{number_format($report->D11,2)}}</td>
+                @foreach($deductions as $deduction)
+                    <td>{{ number_format($report->{'D'.$deduction->id}, 2) }}</td>
+                @endforeach
                 <td> {{$report->bank_name}} </td>
                 <td>{{$report->account_number}}</td>
                 <td>{{number_format($report->gross_pay,2)}}</td>
                 <td>{{number_format($report->total_deduction,2)}}</td>
                 <td>{{number_format($report->net_pay,2)}}</td>
             </tr>
-        @empty
-
-        @endforelse
-{{--        <tr>--}}
-{{--            <td colspan="15"></td>--}}
-{{--            <th colspan="2" style="text-align: right">Subtotal: </th>--}}
-{{--            <th colspan="2">{{number_format($reports->sum('net_pay'),2)}}</th>--}}
-{{--        </tr>--}}
-        </tbody>
-
     @empty
-
+        <tr>
+            <td colspan="50" style="text-align: center;">No payroll records found</td>
+        </tr>
     @endforelse
+    </tbody>
 </table>
 
 

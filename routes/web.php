@@ -27,6 +27,8 @@ use App\Livewire\Forms\Bank;
 use App\Livewire\Forms\Pfa;
 use App\Livewire\Forms\StaffUnion;
 use App\Livewire\Forms\Rank;
+use App\Livewire\Forms\State;
+use App\Livewire\Forms\LocalGovt;
 use App\Livewire\Forms\Tribe;
 use App\Livewire\Forms\Relationship;
 use App\Livewire\Forms\StaffCategory;
@@ -118,6 +120,8 @@ Route::middleware(['auth','is_admin','passkey','2fa'])->group(function (){
         Route::get('pfa',Pfa::class)->name('pfa');
         Route::get('bank',Bank::class)->name('bank');
         Route::get('rank',Rank::class)->name('rank');
+        Route::get('state',State::class)->name('state');
+        Route::get('local/govt',LocalGovt::class)->name('local.govt');
         Route::get('tribe',Tribe::class)->name('tribe');
         Route::get('relationship',Relationship::class)->name('relationship');
         Route::get('employee/type',EmployeeType::class)->name('employee.type');

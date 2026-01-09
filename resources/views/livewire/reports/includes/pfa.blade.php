@@ -45,13 +45,8 @@
                             <td>{{$report->full_name}}</td>
                             <td>{{$report->pension_pin}}</td>
                             <td>
-                                @foreach($deductions as $deduction)
-                                    {{--                {{dd($report["D$deduction->id"])}}--}}
-                                    @php
-                                        $total+=$report["D$deduction->id"]
-                                    @endphp
-                                @endforeach
-                                {{number_format($total,2)}}
+                                {{-- PFA Payment Schedule should only show employer pension contribution (D3) --}}
+                                {{number_format($report->D2, 2)}}
                             </td>
                         </tr>
                         @php $counter++ @endphp

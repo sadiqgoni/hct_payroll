@@ -724,8 +724,13 @@ class PayrollReportCenter extends Component
             ->orderBy($this->group_by? $arrange : $this->order_by,$this->orderAsc)
 
             //            ->orderBy($arrange,$this->orderAsc)
-            ->get()->groupBy($this->group_by);
+            ->get();
         if (!empty($reports)){
+            // For continuous listing without departmental separation, group by a constant value
+            $reports = $reports->groupBy(function($item) {
+                return 'all'; // Group all records under one key for continuous listing
+            });
+
             $payrolls=array();
             foreach ($reports as $report)
             {
@@ -815,7 +820,7 @@ class PayrollReportCenter extends Component
 
             orderBy("$this->orderBy", $this->orderAsc)
                 ->get()
-                ->groupBy('deduction_id');
+                ->groupBy('staff_number'); // Group by staff for continuous listing
 
 
             $date_from = $this->date_from;

@@ -131,6 +131,8 @@
                                 <a class="dropdown-item" href="{{route('bank')}}">Banks</a>
                                 <a class="dropdown-item" href="{{route('pfa')}}">PFAs</a>
                                 <a class="dropdown-item" href="{{route('rank')}}">Ranks</a>
+                                <a class="dropdown-item" href="{{route('state')}}">States</a>
+                                <a class="dropdown-item" href="{{route('local.govt')}}">Local Governments</a>
                                 <a class="dropdown-item" href="{{route('tribe')}}">Tribe</a>
                                 <a class="dropdown-item" href="{{route('relationship')}}">Relationship</a>
                             </div>
@@ -281,6 +283,8 @@
                                 <a class="dropdown-item" href="{{route('bank')}}">Banks</a>
                                 <a class="dropdown-item" href="{{route('pfa')}}">PFAs</a>
                                 <a class="dropdown-item" href="{{route('rank')}}">Ranks</a>
+                                <a class="dropdown-item" href="{{route('state')}}">States</a>
+                                <a class="dropdown-item" href="{{route('local.govt')}}">Local Governments</a>
                                 <a class="dropdown-item" href="{{route('tribe')}}">Tribe</a>
                                 <a class="dropdown-item" href="{{route('relationship')}}">Relationship</a>
                             </div>
