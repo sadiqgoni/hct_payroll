@@ -240,7 +240,15 @@ class EmployeeProfile extends Component
             $this->validate($stepRules);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $firstErrorField = array_key_first($e->validator->errors()->getMessages());
-            $this->step = $this->getStepForField($firstErrorField);
+            $this->steps = $this->getStepForField($firstErrorField);
+
+            // Get the first error message for notification
+            $firstErrorMessage = $e->validator->errors()->first();
+            $this->alert('error', "Please fix: {$firstErrorMessage}", [
+                'timer' => 5000,
+                'position' => 'top-right'
+            ]);
+
             throw $e;
         }
     }
@@ -678,8 +686,21 @@ class EmployeeProfile extends Component
     }
     public function update($id)
     {
-        $this->validate();
-        $this->validateStep();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $firstErrorField = array_key_first($e->validator->errors()->getMessages());
+            $this->steps = $this->getStepForField($firstErrorField);
+
+            // Get the first error message for notification
+            $firstErrorMessage = $e->validator->errors()->first();
+            $this->alert('error', "Please fix: {$firstErrorMessage}", [
+                'timer' => 8000,
+                'position' => 'top-right'
+            ]);
+
+            return; // Don't proceed with update
+        }
 //        if ($this->employment_type==1 || $this->employment_type==3){
 //            $ct=$this->date_of_first_appointment? Carbon::parse($this->date_of_first_appointment)->addYear() : null;
 //        }else{
@@ -746,15 +767,17 @@ class EmployeeProfile extends Component
         }
         $profileObj->save();
         $this->alert('success','Employee record have been Updated',[
-            'timer'=>9000
-//            'progressBarTimer'=>5
+            'timer'=>3000,
+            'onConfirmed' => 'switchToView'
         ]);
         $user=Auth::user();
         $log=new ActivityLog();
         $log->user_id=$user->id;
         $log->action="Updated employee with payroll number  ($this->payroll_number)";
         $log->save();
-//        return redirect()->route('employee.profile');
+
+        // Switch to view mode after successful update
+        $this->view_emp($id);
     }
     public function close()
     {
