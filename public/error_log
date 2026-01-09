@@ -1,0 +1,13 @@
+[25-Jun-2025 09:53:04 UTC] PHP Warning:  require(/home/kssbonline/hctpayroll.com/vendor/composer/../symfony/deprecation-contracts/function.php): Failed to open stream: No such file or directory in /home/kssbonline/hctpayroll.com/vendor/composer/autoload_real.php on line 41
+[25-Jun-2025 09:53:04 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/kssbonline/hctpayroll.com/vendor/composer/../symfony/deprecation-contracts/function.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/kssbonline/hctpayroll.com/vendor/composer/autoload_real.php:41
+Stack trace:
+#0 /home/kssbonline/hctpayroll.com/vendor/composer/autoload_real.php(45): {closure}()
+#1 /home/kssbonline/hctpayroll.com/vendor/autoload.php(25): ComposerAutoloaderInitbfe12996eeecb6fdc8713a9fd9d431f8::getLoader()
+#2 /home/kssbonline/hctpayroll.com/public/index.php(34): require('/home/kssbonlin...')
+#3 {main}
+  thrown in /home/kssbonline/hctpayroll.com/vendor/composer/autoload_real.php on line 41
+[10-Jul-2025 03:49:46 UTC] PHP Warning:  require(/home/kssbonline/hctpayroll.com/public/../vendor/autoload.php): Failed to open stream: No such file or directory in /home/kssbonline/hctpayroll.com/public/index.php on line 34
+[10-Jul-2025 03:49:46 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '/home/kssbonline/hctpayroll.com/public/../vendor/autoload.php' (include_path='.:/opt/alt/php82/usr/share/pear:/opt/alt/php82/usr/share/php:/usr/share/pear:/usr/share/php') in /home/kssbonline/hctpayroll.com/public/index.php:34
+Stack trace:
+#0 {main}
+  thrown in /home/kssbonline/hctpayroll.com/public/index.php on line 34
