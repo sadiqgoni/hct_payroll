@@ -39,6 +39,7 @@
                         $total=0
 
                         @endphp
+                        @if($report->D2 != 0 && $report->D2 != '00')
                         <tr>
                             <td>{{$counter}}</td>
                             <td>{{$report->ip_number}}</td>
@@ -49,6 +50,7 @@
                                 {{number_format($report->D2, 2)}}
                             </td>
                         </tr>
+                        @endif
                         @php $counter++ @endphp
                     @empty
 

@@ -18,7 +18,7 @@
         #footer .page:after { content: counter(page, decimal); }
         @page { margin: 20px 30px 40px 50px; }
         @media print {
-            #footer {page-break-after: always;}
+            /* Removed page-break-after: always; to prevent unwanted page breaks */
             /*#header {*/
             /*    display: table-header-group;*/
             /*}*/
@@ -113,7 +113,6 @@ $counter++
             @empty
             @endforelse
             </tbody>
-            <div class="page-break"></div>
             <tr style="border-collapse: collapse;border: 0">
                 <td colspan="4" style="text-align: right;font-weight: 100;border-collapse: collapse;border: 0;border-top:1px solid !important;padding-right: 10px ">Total: </td>
                 <td colspan="1" style="font-weight: 100;border-collapse: collapse;border: 0;border-top:1px solid !important;">{{number_format($report->sum('amount'),2)}}</td>
@@ -129,7 +128,9 @@ $counter++
             </tr>
 
         </table>
-        <p style="page-break-before: always"></p>
+        @if(!$loop->last)
+            <p style="page-break-before: always"></p>
+        @endif
 
 
     @endif

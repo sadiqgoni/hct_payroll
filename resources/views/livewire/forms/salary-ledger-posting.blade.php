@@ -66,10 +66,10 @@
                            @enderror
                            <div class="input-group">
                                <div class="input-group-prepend"><span class="input-group-text">Description</span></div>
-                               <input class="form-control @error('description') is-invalid @enderror" wire:model="description" type="text" readonly>
+                               <input class="form-control @error('description') is-invalid @enderror" wire:model="description" type="text">
                                <div class="input-group-append"></div>
                            </div>
-                           <small class="text-muted">Description is auto-generated based on institution name, month, and year</small>
+                           <small class="text-muted">Description is auto-generated based on institution name, month, and year (editable)</small>
                        </div>
 
                    </div>

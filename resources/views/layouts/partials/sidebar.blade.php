@@ -415,7 +415,7 @@
             <div class="col-12 col-md-10" style="background: lightblue">
                 <main class="page-content" style="">
                     <div class="container-fluid">
-                        <h2 class="text-uppercase " style="font-size: 14px;text-align: center;">@yield('page_title')</h2>
+                        <h2 class="text-uppercase " style="font-size: 20px;text-align: center;">@yield('page_title')</h2>
                         <hr>
                         <div class="row">
                             <div class="col-12">
@@ -465,7 +465,7 @@
                 <div class="col-12 col-md-10" style="background: lightblue">
                     <main class="page-content" style="">
                         <div class="container-fluid">
-                            <h2 class="text-uppercase " style="font-size: 14px;text-align: center;">@yield('page_title')</h2>
+                            <h2 class="text-uppercase " style="font-size: 20px;text-align: center;">@yield('page_title')</h2>
                             <hr>
                             <div class="row">
                                 <div class="col-12">
