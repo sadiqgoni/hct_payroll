@@ -27,6 +27,7 @@
         @endphp
         @if($report->D2 != 0 && $report->D2 != '00')
         <tr>
+            
             <td>{{$counter}}</td>
             <td>{{$report->ip_number}}</td>
             <td>{{$report->full_name}}</td>

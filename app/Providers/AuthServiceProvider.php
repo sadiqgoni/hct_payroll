@@ -140,7 +140,7 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('backup_history',function (User $user){
             $decode_permission=json_decode($user->permission);
             if (in_array(51,$decode_permission) || $user->id==1){
-                return true;
+                return true;  
             }
         });
         Gate::define('restore_history',function (User $user){
