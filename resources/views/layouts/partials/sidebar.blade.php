@@ -58,6 +58,10 @@
             'allowance.template',
             'deduction.template',
             'salary.template',
+            'tax-brackets.index',
+            'tax-brackets.create',
+            'tax-brackets.edit',
+            'tax-brackets.show',
         ];
  $payrollUpdateRoutes = [
           'salary.update.center',
@@ -168,6 +172,7 @@
                             @can('salary_template')
                                 <a class="dropdown-item" href="{{route('salary.template')}}">Salary template</a>
                             @endcan
+                                <a class="dropdown-item" href="{{route('tax-brackets.index')}}">Tax Brackets</a>
 
                         </div>
                     </div>
@@ -320,6 +325,7 @@
                             @can('salary_template')
                                 <a class="dropdown-item" href="{{route('salary.template')}}">Salary template</a>
                             @endcan
+                                <a class="dropdown-item" href="{{route('tax-brackets.index')}}">Tax Brackets</a>
 
                         </div>
                     </div>

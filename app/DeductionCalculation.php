@@ -102,6 +102,7 @@ class DeductionCalculation
         $annual_allowance=round($total_allow *12,2);
         $annual_gross=round($annual_basic + $annual_allowance,2);
 
+
         $agp=round((20/100) * $annual_gross,2);
         $consolidated_relief=200000.00 + $agp;
 
@@ -124,13 +125,16 @@ class DeductionCalculation
 
         $total_relief=round($consolidated_relief + $pension + $nhf + $nhis + $national_pension + $gratuity,2);
         $taxable_income=round($annual_gross - $total_relief,2);
+        
+        
         //Now compute tax
        return $this->compute_tax($taxable_income);
     }
     public function paye_calculation2($basic_salary,$statutory_deductionId)
     {
+        
         $allowances=\App\Models\Allowance::join('salary_allowance_templates','salary_allowance_templates.allowance_id','allowances.id')
-            ->select('salary_allowance_templates.*','allowances.taxable','allowances.status')
+            ->select('salary_allowance_templates.*','allowances.taxable','allowances.status','allowances.allowance_name')
             ->where('taxable',1)
             ->where('status',1)
             ->get();
@@ -148,12 +152,14 @@ class DeductionCalculation
             }
         }
         $total_allow=$total;
+        
         $annual_basic=round($basic_salary * 12);
 
         $monthly_gross=$basic_salary + $total_allow;
 
         //statutory deductions
         $statutory_deduction=statutory_deduction($statutory_deductionId);
+        
         if ($statutory_deduction == 1){
             $pension=round( (8/100) * $basic_salary,2);
             $nhf=round( (2.5/100) * $basic_salary,2);
@@ -171,67 +177,128 @@ class DeductionCalculation
         $relief=round( $annual_gross * 0.2 + (16666.6666 * 12),2);
         $taxable_income=round($annual_gross- $relief,2);
 
+
         //Now compute tax
 
       return $this->compute_tax($taxable_income);
 
     }
 
-    public function compute_tax($taxable_income)
+    public function compute_tax($taxable_income_or_basic_salary, $taxable_allowances = 0)
     {
+        // Try to use dynamic tax bracket first
+        try {
+            $activeBracket = \App\Models\TaxBracket::active()->first();
+
+            if ($activeBracket) {
+                
+                // If called with basic salary and allowances, use the new method
+                if ($taxable_allowances > 0 || $taxable_income_or_basic_salary < 1000000) {
+                    // This looks like basic salary, use full calculation
+                    $basicSalary = $taxable_income_or_basic_salary;
+                    $statutoryBase = app_settings()->statutory_deduction == 1 ? 'basic' : 'gross';
+                    
+                    $paye = $activeBracket->calculatePAYE($basicSalary, $taxable_allowances, $statutoryBase);
+                    
+                    return $paye;
+                } else {
+                    // This is already taxable income, just calculate tax
+                    $annualTax = $activeBracket->calculateTax($taxable_income_or_basic_salary);
+                    $monthlyPaye = round($annualTax / 12, 2);
+                    
+                    return $monthlyPaye;
+                }
+            }
+        } catch (\Exception $e) {
+            // Log error but continue with fallback
+        }
+
+        // Fallback to old hardcoded method if no active bracket or error
+        return $this->compute_tax_legacy($taxable_income_or_basic_salary);
+    }
+
+    /**
+     * Legacy tax computation method (fallback)
+     * @deprecated Use dynamic tax brackets instead
+     */
+    public function compute_tax_legacy($taxable_income)
+    {
+        
         $tax_inc=$taxable_income;
         $balance=$tax_inc;
         $tax=0;
         $total_paye_per_month=0;
+        
+        
+        // Band 1: First ₦300,000 @ 7%
         if ($balance > 300000)
         {
             $tax=number_format($tax +(7/100) * 300000,2,'.','');
             $balance=number_format($balance - 300000,2,'.','');
         }
         else{
-            $tax = number_format($tax + (7/100) * 300000,2,'.','');
+            $tax = number_format($tax + (7/100) * $balance,2,'.','');
             $total_paye_per_month=number_format($tax / 12,2,'.','');
         }
+        
+        // Band 2: Next ₦300,000 @ 11%
         if ($balance > 300000)
         {
             $tax = number_format($tax + (11/100) * 300000,2,'.','');
             $balance=number_format($balance - 300000,2,'.','');
         }
         else{
+            $taxBand = number_format((11/100) * $balance,2,'.','');
             $tax=number_format($tax + (11/100) * $balance,2,'.','');
             $total_paye_per_month=number_format($tax/12,2,'.','');
         }
+        
+        // Band 3: Next ₦500,000 @ 15%
         if($balance > 500000)
         {
             $tax = number_format($tax + (15/100) * 500000,2,'.','');
             $balance = number_format($balance - 500000,2,'.','');
         }
         else{
+            $taxBand = number_format((15/100) * $balance,2,'.','');
             $tax = number_format($tax + (15/100) * $balance,2,'.','');
             $total_paye_per_month= number_format($tax/12,2,'.','');
         }
 
+        // Band 4: Next ₦500,000 @ 19%
         if($balance > 500000)
         {
             $tax = number_format($tax + (19/100) * 500000,2,'.','');
             $balance = number_format($balance - 500000,2,'.','');
         }
         else{
+            $taxBand = number_format((19/100) * $balance,2,'.','');
             $tax = number_format($tax + (19/100) * $balance,2,'.','');
             $total_paye_per_month= number_format($tax/12,2,'.','');
         }
 
+        // Band 5: Next ₦1,600,000 @ 21%
         if($balance > 1600000)
         {
             $tax = number_format($tax + (21/100) * 1600000,2,'.','');
             $balance = number_format($balance - 1600000,2,'.','');
         }
         else{
+            $taxBand = number_format((21/100) * $balance,2,'.','');
             $tax = number_format($tax + (21/100) * $balance,2,'.','');
             $total_paye_per_month= number_format($tax/12,2,'.','');
         }
-        $tax=$tax + (24/100) * $balance;
+        
+        // Band 6: Above ₦3,200,000 @ 24%
+        if ($balance > 0) {
+            $taxBand = number_format((24/100) * $balance,2,'.','');
+            $tax=$tax + (24/100) * $balance;
+        }
+        
         $total_paye_per_month=round($tax/12,2);
+        
+        // DEBUG: Log the final calculation
+        
 //        dd($total_paye_per_month);
         return $total_paye_per_month;
     }

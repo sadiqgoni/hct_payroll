@@ -108,10 +108,36 @@ class GroupSalaryUpdate extends Component
                 $salary_update = SalaryUpdate::where('employee_id', $employee->id)->first();
                 if ($this->update_allow_deduct==2 && $this->selected_allow_deduct==1 && $this->paye_calculation !=1){
 
-                    $paye=app(DeductionCalculation::class);
-                    if ($this->paye_calculation == 2){
+                    if ($this->paye_calculation == 4){
+                        // Use new dynamic tax bracket system
+                        $activeBracket = \App\Models\TaxBracket::active()->first();
+                        if ($activeBracket) {
+                            // Get taxable allowances from salary_update
+                            $taxable_allowances = collect([
+                                'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
+                                'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20'
+                            ])->sum(function($field) use ($salary_update) {
+                                $allowance = \App\Models\Allowance::find((int)str_replace('A', '', $field));
+                                return ($allowance && $allowance->is_taxable) ? ($salary_update->$field ?? 0) : 0;
+                            });
+                            
+                            $this->amount = $activeBracket->calculatePAYE(
+                                $salary_update->basic_salary,
+                                $taxable_allowances,
+                                $this->statutory_deduction == 1 ? 'basic' : 'gross'
+                            );
+                        } else {
+                            $this->amount = 0;
+                            \Log::error('No active tax bracket found for PAYE calculation');
+                        }
+                    }
+                    elseif ($this->paye_calculation == 2){
+                        // Legacy Formula 1
+                        $paye=app(DeductionCalculation::class);
                         $this->amount=$paye->paye_calculation1($salary_update->basic_salary,$this->statutory_deduction);
                     }elseif ($this->paye_calculation==3){
+                        // Legacy Formula 2
+                        $paye=app(DeductionCalculation::class);
                         $this->amount=$paye->paye_calculation2($salary_update->basic_salary,$this->statutory_deduction);
                     }
                     $salary_update["D$this->selected_allow_deduct"] = $this->amount;
@@ -276,11 +302,37 @@ class GroupSalaryUpdate extends Component
                   $salary_update->save();
               }else{
                   //deductions
-                  if ($this->selected_allow_deduct==1 && ($this->paye_calculation ==2 || $this->paye_calculation ==3)){
-                      $paye=app(DeductionCalculation::class);
-                      if ($this->paye_calculation == 2){
+                  if ($this->selected_allow_deduct==1 && ($this->paye_calculation ==2 || $this->paye_calculation ==3 || $this->paye_calculation ==4)){
+                      if ($this->paye_calculation == 4){
+                          // Use new dynamic tax bracket system
+                          $activeBracket = \App\Models\TaxBracket::active()->first();
+                          if ($activeBracket) {
+                              // Get taxable allowances from salary_update
+                              $taxable_allowances = collect([
+                                  'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10',
+                                  'A11', 'A12', 'A13', 'A14', 'A15', 'A16', 'A17', 'A18', 'A19', 'A20'
+                              ])->sum(function($field) use ($salary_update) {
+                                  $allowance = \App\Models\Allowance::find((int)str_replace('A', '', $field));
+                                  return ($allowance && $allowance->is_taxable) ? ($salary_update->$field ?? 0) : 0;
+                              });
+                              
+                              $this->amount = $activeBracket->calculatePAYE(
+                                  $salary_update->basic_salary,
+                                  $taxable_allowances,
+                                  app_settings()->statutory_deduction == 1 ? 'basic' : 'gross'
+                              );
+                          } else {
+                              $this->amount = 0;
+                              \Log::error('No active tax bracket found for PAYE calculation');
+                          }
+                      }
+                      elseif ($this->paye_calculation == 2){
+                          // Legacy Formula 1
+                          $paye=app(DeductionCalculation::class);
                           $this->amount=$paye->paye_calculation1($salary_update->basic_salary,app_settings()->statutory_deduction);
                       }elseif ($this->paye_calculation==3){
+                          // Legacy Formula 2
+                          $paye=app(DeductionCalculation::class);
                           $this->amount=$paye->paye_calculation2($salary_update->basic_salary,app_settings()->statutory_deduction);
                       }
                   }

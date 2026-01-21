@@ -167,12 +167,18 @@
                                             <select type="text" class="form-control @error('paye_calculation') is-invalid @enderror" wire:model.live="paye_calculation">
                                                 {{--                                    <option value="">Select paye calculation</option>--}}
                                                 <option value="1">Use Deduction Template</option>
-                                                <option value="2">Formular 1</option>
-                                                <option value="3">Formular 2</option>
+                                                <option value="4">Calculate PAYE (Dynamic)</option>
                                                 <option value="0">As Percentage of Basic</option>
 
                                             </select>
                                         </div>
+                                        @if($paye_calculation == 4)
+                                            <div class="col-12">
+                                                <div class="alert alert-info">
+                                                    <i class="fa fa-info-circle"></i> Using active tax bracket: <strong>{{ \App\Models\TaxBracket::active()->first()?->version_name ?? 'None configured' }}</strong>
+                                                </div>
+                                            </div>
+                                        @endif
 
                                 @endif
                             </div>
