@@ -58,7 +58,7 @@ class AnnualSalaryIncrement extends Component
     {
         $this->validateOnly($pro);
 
-        if (in_array($pro, ['min_service_months', 'increment_date', 'salary_structure', 'grade_level_from', 'grade_level_to', 'employee_type', 'staff_category', 'status', 'unit', 'department', 'action_type'])) {
+        if (in_array($pro, ['min_service_months', 'increment_date', 'salary_structure', 'grade_level_from', 'grade_level_to', 'employee_type', 'staff_category', 'status', 'unit', 'department'])) {
             $this->updatePreview();
         }
     }
@@ -67,7 +67,7 @@ class AnnualSalaryIncrement extends Component
     {
         if ($this->action_type == 'increment' && $this->selection_mode == 'criteria' && $this->min_service_months && $this->min_service_months > 0) {
             $employees = $this->getFilteredEmployees();
-            $this->preview_employees = $employees->take(100); // Limit preview to 100
+            $this->preview_employees = $employees->take(100);
             $this->revert_preview = [];
         } elseif ($this->action_type == 'revert' && $this->increment_date) {
             // Find increments to revert
@@ -76,13 +76,15 @@ class AnnualSalaryIncrement extends Component
                 ->when($this->selection_mode == 'specific' && count($this->specific_employee_ids) > 0, function ($q) {
                     return $q->whereIn('employee_id', $this->specific_employee_ids);
                 })
-                ->with('employee')
+                // We could add more filters here if needed, but usually revert is purely time-based or specific person
+                ->with('employee') // Assuming relationship exists, if not we might need to join
                 ->get();
         } else {
             $this->preview_employees = [];
             $this->revert_preview = [];
         }
     }
+
 
     public function getFilteredEmployees()
     {
@@ -131,12 +133,6 @@ class AnnualSalaryIncrement extends Component
     }
 
     protected $listeners = ['confirmed', 'canceled'];
-
-    public function getListeners()
-    {
-        return $this->listeners + ['performRevert' => 'performRevert'];
-    }
-
     public function confirm()
     {
         $this->validate();
@@ -161,17 +157,22 @@ class AnnualSalaryIncrement extends Component
         }
 
         $exists = \App\Models\AnnualSalaryIncrement::where('increment_year', Carbon::parse($this->increment_date)->format('Y'))->get();
-
+        // ... (existing increment confirm logic)
         $this->alert('question', ' This will increment salaries of the selected employees, do you want to continue?', [
             'showConfirmButton' => true,
             'showCancelButton' => true,
             'onConfirmed' => 'confirmed',
             'onDismissed' => 'cancelled',
             'timer' => 90000,
-            //            'timerProgressBar'=>true,
             'position' => 'center',
             'confirmButtonText' => 'Yes',
         ]);
+    }
+
+    // Add listener for performRevert
+    public function getListeners()
+    {
+        return $this->listeners + ['performRevert' => 'performRevert'];
     }
 
     public function performRevert()
@@ -179,6 +180,8 @@ class AnnualSalaryIncrement extends Component
         $this->authorize('can_save');
         set_time_limit(2000);
 
+        $increments = $this->revert_preview; // cached from preview, or re-fetch to be safe
+        // Re-fetch to be safe
         $increments = \App\Models\AnnualSalaryIncrement::whereDate('month_year', Carbon::parse($this->increment_date)->format('Y-m-d'))
             ->when($this->selection_mode == 'specific' && count($this->specific_employee_ids) > 0, function ($q) {
                 return $q->whereIn('employee_id', $this->specific_employee_ids);
@@ -202,6 +205,8 @@ class AnnualSalaryIncrement extends Component
                 $salary_update->basic_salary = $basic_salary;
 
                 // Recalculate Allowances/Deductions for the OLD salary/step
+                // We use the same logic as increment but with the restored values
+
                 foreach (SalaryAllowanceTemplate::where('salary_structure_id', $employee->salary_structure)
                     ->whereRaw('? between grade_level_from and grade_level_to', [$employee->grade_level])
                     ->where('allowance_type', 1)->get() as $allowance) {

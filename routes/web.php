@@ -8,6 +8,7 @@ use App\Livewire\Reports\PayrollReportCenter;
 use App\Http\Controllers\Report\ReportController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\TaxBracketController;
 use App\Livewire\Reports\EmployeeReportCenter;
 use App\Livewire\Reports\ReportForIndividual;
 use App\Livewire\Forms\AnnualSalaryIncrement;
@@ -69,7 +70,6 @@ use App\Livewire\Pages\SalaryAnalysisChart;
 
 use App\Livewire\Pages\HelpView;
 use App\Livewire\Forms\Question;
-use App\Http\Controllers\TaxBracketController;
 
 /*
 |--------------------------------------------------------------------------
@@ -191,7 +191,7 @@ Route::middleware(['auth','is_admin','passkey','2fa'])->group(function (){
     Route::get('faq',Question::class)->name('faq');
 
     // Tax Bracket Management Routes
-    Route::prefix('tax-brackets')->name('tax-brackets.')->group(function () {
+    Route::middleware('can:salary_template')->prefix('tax-brackets')->name('tax-brackets.')->group(function () {
         Route::get('/', [TaxBracketController::class, 'index'])->name('index');
         Route::get('/create', [TaxBracketController::class, 'create'])->name('create');
         Route::post('/', [TaxBracketController::class, 'store'])->name('store');
