@@ -194,7 +194,7 @@
                                                                                         <td>{{ $emp->full_name }} <small class="text-muted">({{
                                                         $emp->staff_number }})</small></td>
                                                                                         <td>{{ \Carbon\Carbon::parse($emp->date_of_first_appointment)->format('d
-                                                                                            M, Y') }}
+                                                                                                                                                                            M, Y') }}
                                                                                         </td>
                                                                                         <td>{{ $emp->service_months_diff ?? 'N/A' }} months</td>
                                                                                         <td>Level {{ $emp->grade_level }} / Step {{ $emp->step }}</td>
@@ -233,7 +233,7 @@
                                                         <td>
                                                             {{ $inc->employee->full_name ?? 'Unknown' }}
                                                             <small class="text-muted">({{ $inc->employee->staff_number ?? '-'
-                                                                }})</small>
+                                                                                }})</small>
                                                         </td>
                                                         <td>{{ \Carbon\Carbon::parse($inc->month_year)->format('M Y') }}</td>
                                                         <td>
@@ -305,9 +305,10 @@
                                                                                                     <div class="d-flex flex-column" style="line-height: 1.2;">
                                                                                                         <span class="font-weight-bold text-dark"
                                                                                                             style="font-size: 0.85rem;">{{ $emp->full_name
-                                                                                                            }}</span>
-                                                                                                        <small class="text-muted">{{ $emp->staff_number
-                                                                                                            }}</small>
+                                                                                                                                                                                            }}</span>
+                                                                                                        <small
+                                                                                                            class="text-muted">{{ $emp->staff_number
+                                                                                                                                                                                            }}</small>
                                                                                                     </div>
                                                                                                 </label>
                                                                                             @endforeach
@@ -331,6 +332,14 @@
 
                     <div class="row">
                         <div class="col">
+                            <label for="">Arrears (Months)</label>
+                            @error('arrears_months')
+                                <strong class="text-danger d-block form-text">{{$message}}</strong>
+                            @enderror
+                            <input type="number" class="form-control-sm @error('arrears_months') is-invalid @enderror"
+                                wire:model.blur="arrears_months" name="arrears_months" min="0">
+                        </div>
+                        <div class="col">
                             <label for="">Please increment salaries of selected staff by</label>
                             @error('number_of_increment')
                                 <strong class="text-danger d-block form-text">{{$message}}</strong>
@@ -342,18 +351,6 @@
                         </div>
                     </div>
 
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="overwrite"
-                                    wire:model.blur="overwrite">
-                                <label class="form-check-label text-danger font-weight-bold" for="overwrite">
-                                    Force / Overwrite existing increments for this month?
-                                </label>
-
-                            </div>
-                        </div>
-                    </div>
 
                 </fieldset>
                 @can('can_save')
