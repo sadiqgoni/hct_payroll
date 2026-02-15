@@ -75,9 +75,14 @@
                                 <table   style="width: 75%;margin-left: 3%;font-size: 13px !important;" >
 
                                     @php
-                                        $step=\App\Models\EmployeeProfile::where('staff_number',$paySlip->pf_number)->first()->step;
+                                        $step = optional(\App\Models\EmployeeProfile::where('staff_number',$paySlip->pf_number)->first())->step;
                                     @endphp
 
+                                    @php
+                                        $allowances = \App\Models\Allowance::where('status', 1)->get();
+                                        $deductions = \App\Models\Deduction::where('status', 1)->get();
+                                        $maxRows = max($allowances->count(), $deductions->count() - 1);
+                                    @endphp
                                     <tbody>
                                     <tr>
                                         <td  style="margin-top: 40px;">Basic Sal: <br> Sal Arrears: </td>
@@ -90,92 +95,33 @@
                                         <td colspan="2"><b>Allowances</b></td>
                                         <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 
-                                        <td>Payee:</td>
-                                        <td style="text-align: right">{{number_format($paySlip->D1,2)}} <sup>@if(array_key_exists('D1',$loan)){{$loan['D1']}}@endif</sup> </td>
+                                        @if($deductions->count() > 0)
+                                            <td>{{$deductions[0]->deduction_name}}:</td>
+                                            <td style="text-align: right">{{number_format($paySlip->{'D'.$deductions[0]->id},2)}} <sup>@if(array_key_exists('D'.$deductions[0]->id,$loan)){{$loan['D'.$deductions[0]->id]}}@endif</sup> </td>
+                                        @else
+                                            <td colspan="2"></td>
+                                        @endif
                                     </tr>
-                                    <tr>
-                                        <td>Resp Allow: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A1,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 
-                                        <td>Pension:  </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D2,2)}} <sup>@if(array_key_exists('D2',$loan)){{$loan['D2']}}@endif</sup> </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Haz Allow:</td>
-                                        <td style="text-align: right">{{number_format($paySlip->A2,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                                    @for($i = 0; $i < $maxRows; $i++)
+                                        <tr>
+                                            @if(isset($allowances[$i]))
+                                                <td>{{$allowances[$i]->allowance_name}}: </td>
+                                                <td style="text-align: right">{{number_format($paySlip->{'A'.$allowances[$i]->id},2)}}</td>
+                                            @else
+                                                <td colspan="2"></td>
+                                            @endif
 
-                                        <td>NHF: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D3,2)}} <sup>@if(array_key_exists('D3',$loan)){{$loan['D3']}}@endif</sup> </td>
-                                    </tr>
-                                    <tr>
-                                        <td>NM Haz Allow: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A3,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                                            <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 
-                                        <td>Union 1 Ded:</td>
-                                        <td style="text-align: right">{{number_format($paySlip->D4,2)}} <sup>@if(array_key_exists('D4',$loan)){{$loan['D4']}}@endif</sup> </td>
-                                    </tr>
-                                    <tr>
-                                        <td>C Duty Allow: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A4,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-
-                                        <td>Sal Ded  </td>
-                                        <td style="text-align: right"> {{number_format($paySlip->D5,2)}} <sup>@if(array_key_exists('D5',$loan)){{$loan['D5']}}@endif</sup> </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Spec Allow: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A5,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-                                        <td>FUHSNICS: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D6,2)}} <sup>@if(array_key_exists('D6',$loan)){{$loan['D6']}}@endif</sup> </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Teach Allow: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A6,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-
-                                        <td>Anupa: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D7,2)}} <sup>@if(array_key_exists('D7',$loan)){{$loan['D7']}}@endif</sup> </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Shift Allow:</td>
-                                        <td style="text-align: right">{{number_format($paySlip->A7,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-
-                                        <td>Page Loans: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D8,2)}} <sup>@if(array_key_exists('D8',$loan)){{$loan['D8']}}@endif</sup> </td>
-
-                                    </tr>
-                                    <tr>
-                                        <td>Other Allow1: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A8,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-
-                                        <td>Other Ded1: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D9,2)}} <sup>@if(array_key_exists('D9',$loan)){{$loan['D9']}}@endif</sup> </td>
-
-                                    </tr>
-                                    <tr>
-                                        <td>Other Allow2: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A9,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-
-                                        <td>Other Ded2: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D10,2)}} <sup>@if(array_key_exists('D10',$loan)){{$loan['D10']}}@endif</sup> </td>
-
-                                    </tr>
-                                    <tr>
-                                        <td>Other Allow3: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->A10,2)}}</td>
-                                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-
-                                        <td>Union 2 Ded: </td>
-                                        <td style="text-align: right">{{number_format($paySlip->D11,2)}} <sup>@if(array_key_exists('D11',$loan)){{$loan['D11']}}@endif</sup> </td>
-
-                                    </tr>
+                                            @if(isset($deductions[$i+1]))
+                                                <td>{{$deductions[$i+1]->deduction_name}}: </td>
+                                                <td style="text-align: right">{{number_format($paySlip->{'D'.$deductions[$i+1]->id},2)}} <sup>@if(array_key_exists('D'.$deductions[$i+1]->id,$loan)){{$loan['D'.$deductions[$i+1]->id]}}@endif</sup> </td>
+                                            @else
+                                                <td colspan="2"></td>
+                                            @endif
+                                        </tr>
+                                    @endfor
 
                                     <tr>
                                         <td style="font-weight: bolder" colspan="4"><b>Gross Pay:{{number_format($paySlip->gross_pay,2)}}</b></td>
