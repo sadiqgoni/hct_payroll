@@ -13,6 +13,7 @@ use App\Models\SalaryStructure;
 use App\Models\SalaryStructureTemplate;
 use App\Models\SalaryUpdate;
 use App\Models\StaffCategory;
+use App\Models\StepAllowanceTemplate;
 use App\Models\Unit;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -201,12 +202,20 @@ class AnnualSalaryIncrement extends Component
             if ($salary_update) {
                 $basic_salary = $inc->current_salary; // The 'current_salary' in Increment table was the salary BEFORE increment
                 $salary_update->basic_salary = $basic_salary;
+                $stepAllowances = StepAllowanceTemplate::where('salary_structure_id', $employee->salary_structure)
+                    ->where('grade_level', $employee->grade_level)
+                    ->where('step', $inc->old_grade_step)
+                    ->get()
+                    ->keyBy('allowance_id');
 
                 // Recalculate Allowances/Deductions for the OLD salary/step
                 foreach (SalaryAllowanceTemplate::where('salary_structure_id', $employee->salary_structure)
                     ->whereRaw('? between grade_level_from and grade_level_to', [$employee->grade_level])
                     ->where('allowance_type', 1)->get() as $allowance) {
-                    $salary_update["A$allowance->allowance_id"] = round($basic_salary / 100 * $allowance->value);
+                    $amount = isset($stepAllowances[$allowance->allowance_id])
+                        ? $stepAllowances[$allowance->allowance_id]->value
+                        : round($basic_salary / 100 * $allowance->value);
+                    $salary_update["A$allowance->allowance_id"] = $amount;
                 }
 
                 foreach (SalaryDeductionTemplate::where('salary_structure_id', $employee->salary_structure)
@@ -331,12 +340,20 @@ class AnnualSalaryIncrement extends Component
                         $basic_salary = round($annual_salary / 12, 2);
 
                         $salary_update->basic_salary = $basic_salary;
+                        $stepAllowances = StepAllowanceTemplate::where('salary_structure_id', $employee->salary_structure)
+                            ->where('grade_level', $employee->grade_level)
+                            ->where('step', $grade_step)
+                            ->get()
+                            ->keyBy('allowance_id');
 
                         // Update Allowances
                         foreach (SalaryAllowanceTemplate::where('salary_structure_id', $employee->salary_structure)
                             ->whereRaw('? between grade_level_from and grade_level_to', [$employee->grade_level])
                             ->where('allowance_type', 1)->get() as $allowance) {
-                            $salary_update["A$allowance->allowance_id"] = round($basic_salary / 100 * $allowance->value);
+                            $amount = isset($stepAllowances[$allowance->allowance_id])
+                                ? $stepAllowances[$allowance->allowance_id]->value
+                                : round($basic_salary / 100 * $allowance->value);
+                            $salary_update["A$allowance->allowance_id"] = $amount;
                             $salary_update->save();
                         }
 
@@ -373,6 +390,8 @@ class AnnualSalaryIncrement extends Component
 
                         $salary_update->gross_pay = $gross_pay;
                         $salary_update->net_pay = $net_pay;
+                        $salary_update->total_allowance = $total_allowance;
+                        $salary_update->total_deduction = $total_deduction;
                         $salary_update->save();
 
                         $employee->step = $grade_step;

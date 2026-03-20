@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class AnnualSalaryIncrement extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'employee_id',
         'increment_month',
@@ -17,14 +18,9 @@ class AnnualSalaryIncrement extends Model
         'grade_level',
         'old_grade_step',
         'new_grade_step',
+        'status',
         'current_salary',
         'new_salary',
-        'status',
         'arrears_months'
     ];
-
-    public function employee()
-    {
-        return $this->belongsTo(EmployeeProfile::class, 'employee_id');
-    }
 }

@@ -8,6 +8,7 @@ use App\Models\ActivityLog;
 use App\Models\Allowance;
 use App\Models\Deduction;
 use App\Models\SalaryAllowanceTemplate;
+use App\Models\StepAllowanceTemplate;
 use App\Models\SalaryDeductionTemplate;
 use App\Models\SalaryStructureTemplate;
 use App\Models\SalaryUpdate;
@@ -26,10 +27,12 @@ class EmployeePromotion extends Component
 {
     public $search, $perpage;
     public $record = true, $create, $edit, $ids;
-    public $payroll_number, $salary_structure, $level, $ledger_fails, $step, $staff_number, $staff_name, $status, $importFilePath, $importFile, $file_name, $arrears_months;
+    public $payroll_number, $salary_structure, $level, $ledger_fails, $step, $staff_number, $staff_name, $status, $importFilePath, $importFile, $file_name;
+    public $arrears_months;
     use LivewireAlert, WithFileUploads, WithPagination, WithoutUrlPagination;
     public $upload_errors;
-    protected $listeners = ['delete', 'confirm', 'clearAll'];
+    public $revertPromotionId = null;
+    protected $listeners = ['delete', 'confirm', 'clearAll', 'revertPromotion'];
     protected $rules = [
         'payroll_number' => 'required',
         'salary_structure' => 'required',
@@ -37,8 +40,8 @@ class EmployeePromotion extends Component
         'step' => 'required|',
         'staff_number' => 'required|',
         'staff_name' => 'required|',
-        'arrears_months' => 'nullable|numeric|min:0',
         //        'status'=>'required|',
+        'arrears_months' => 'nullable|numeric|min:0',
     ];
     //    public function updatedImportFile(){
 //        $this->file_name=$this->document->getClientOriginalName();
@@ -58,10 +61,10 @@ class EmployeePromotion extends Component
         $promotionObj->salary_structure = $this->salary_structure;
         $promotionObj->level = $this->level;
         $promotionObj->step = $this->step;
-        $promotionObj->arrears_months = $this->arrears_months;
         //        $promotionObj->staff_name=$this->staff_name;
 //        $promotionObj->staff_number=$this->staff_number;
 //        $promotionObj->status=$this->status;
+        $promotionObj->arrears_months = $this->arrears_months;
         $promotionObj->save();
         $this->clear();
 
@@ -77,7 +80,6 @@ class EmployeePromotion extends Component
         $this->staff_number = '';
         $this->staff_name = '';
         $this->status = '';
-        $this->arrears_months = '';
     }
     public function close()
     {
@@ -99,7 +101,6 @@ class EmployeePromotion extends Component
         $this->level = $promotionObj->level;
         $this->step = $promotionObj->step;
         $this->status = $promotionObj->status;
-        $this->arrears_months = $promotionObj->arrears_months;
         $this->staff_number = $user ? $user->staff_number : '';
         $this->staff_name = $user ? $user->full_name : '';
     }
@@ -110,7 +111,6 @@ class EmployeePromotion extends Component
         $promotionObj->salary_structure = $this->salary_structure;
         $promotionObj->level = $this->level;
         $promotionObj->step = $this->step;
-        $promotionObj->arrears_months = $this->arrears_months;
         //        $promotionObj->staff_name=$this->staff_name;
 //        $promotionObj->staff_number=$this->staff_number;
         $promotionObj->status = $this->status;
@@ -204,7 +204,9 @@ class EmployeePromotion extends Component
 
 
                 $salary = SalaryStructureTemplate::where('salary_structure_id', $promotion->salary_structure)->where('grade_level', $promotion->level)->first();
-                $a = SalaryAllowanceTemplate::where('salary_structure_id', $promotion->salary_structure)->whereRaw('? between grade_level_from and grade_level_to', [$promotion->level])->get();
+                $a = SalaryAllowanceTemplate::where('salary_structure_id', $promotion->salary_structure)
+                    ->whereRaw('? between grade_level_from and grade_level_to', [$promotion->level])
+                    ->get();
                 $d = SalaryDeductionTemplate::where('salary_structure_id', $promotion->salary_structure)->whereRaw('? between grade_level_from and grade_level_to', [$promotion->level])->get();
 
                 if (!empty($salary)) {
@@ -214,14 +216,29 @@ class EmployeePromotion extends Component
 
                     if (SalaryUpdate::where('employee_id', $employee->id)->exists()) {
                         $salary_update = SalaryUpdate::where('employee_id', $employee->id)->first();
-                        $old_gross = $salary_update->gross_pay; // Capture old gross pay for arrears calculation
+                        $old_gross = $salary_update->gross_pay; // Capture OLD gross pay
+
+                        // Store previous grade/step for revert (grade level increment revert)
+                        $promotion->old_grade_level = $employee->grade_level;
+                        $promotion->old_step = $employee->step;
+                        $promotion->old_salary_structure = (string) $employee->salary_structure;
+                        $promotion->save();
+                        $stepAllowances = StepAllowanceTemplate::where('salary_structure_id', $promotion->salary_structure)
+                            ->where('grade_level', $promotion->level)
+                            ->where('step', $promotion->step)
+                            ->get()
+                            ->keyBy('allowance_id');
 
                         $total_allow = 0;
                         foreach ($a as $key => $allow) {
-                            if ($allow->allowance_type == 1) {
-                                $amount = round($basic_salary / 100 * $allow->value, 2);
+                            if (isset($stepAllowances[$allow->allowance_id])) {
+                                $amount = $stepAllowances[$allow->allowance_id]->value;
                             } else {
-                                $amount = $allow->value;
+                                if ($allow->allowance_type == 1) {
+                                    $amount = round($basic_salary / 100 * $allow->value, 2);
+                                } else {
+                                    $amount = $allow->value;
+                                }
                             }
                             $salary_update["A$allow->allowance_id"] = $amount;
                             $total_allow += round($amount, 2);
@@ -235,11 +252,9 @@ class EmployeePromotion extends Component
                                 $paye = app(DeductionCalculation::class);
                                 $default_paye_calculation = app_settings()->paye_calculation;
                                 $default_statutory_calculation = app_settings()->statutory_deduction;
-                                if ($default_paye_calculation == 2) {
-                                    $amount = $paye->paye_calculation1($basic_salary, $default_statutory_calculation);
-                                } else {
-                                    $amount = $paye->paye_calculation2($basic_salary, $default_statutory_calculation);
-                                }
+                                $a1_amount = round((float) ($salary_update->A1 ?? 0), 2);
+                                $taxable_allowances = max(0, round($total_allow - $a1_amount, 2));
+                                $amount = $paye->compute_tax($basic_salary, $taxable_allowances);
 
                             } else {
 
@@ -288,12 +303,14 @@ class EmployeePromotion extends Component
                         $net_pay = round($gross_pay - $total_deduct, 2);
                         $salary_update->gross_pay = $gross_pay;
                         $salary_update->net_pay = $net_pay;
+                        $salary_update->net_pay = $net_pay;
 
                         // Calculate Arrears
                         if ($promotion->arrears_months > 0) {
                             $increment = $gross_pay - $old_gross;
                             if ($increment > 0) {
                                 $arrears_amount = round($increment * $promotion->arrears_months, 2);
+                                // Add to existing arrears
                                 $salary_update->salary_arears = ($salary_update->salary_arears ?? 0) + $arrears_amount;
                             }
                         }
@@ -319,6 +336,113 @@ class EmployeePromotion extends Component
         $log->action = "Promoted " . StaffPromotion::get()->count() . " staffs";
         $log->save();
         $this->alert('success', 'Record have been successfully posted to ledger');
+    }
+
+    /**
+     * Revert a grade level increment (promotion): restore employee to previous grade/step and salary.
+     */
+    public function confirmRevertPromotion(int $id): void
+    {
+        $this->revertPromotionId = $id;
+        $this->alert('question', 'Revert this grade level increment? Employee will be restored to previous grade, step and salary.', [
+            'showConfirmButton' => true,
+            'showCancelButton' => true,
+            'onConfirmed' => 'revertPromotion',
+            'timer' => 90000,
+            'position' => 'center',
+            'confirmButtonText' => 'Yes, revert',
+        ]);
+    }
+
+    public function revertPromotion(): void
+    {
+        $id = $this->revertPromotionId;
+        $this->revertPromotionId = null;
+        if (!$id) {
+            return;
+        }
+        $promotion = StaffPromotion::where('id', $id)->where('status', 1)->first();
+        if (!$promotion || $promotion->old_grade_level === null || $promotion->old_step === null) {
+            $this->alert('warning', 'Promotion not found or cannot be reverted (no previous grade/step stored).', ['timer' => 5000]);
+            return;
+        }
+        $employee = \App\Models\EmployeeProfile::where('payroll_number', $promotion->payroll_number)->first();
+        $salary_update = SalaryUpdate::where('employee_id', $employee->id)->first();
+        if (!$employee || !$salary_update) {
+            $this->alert('warning', 'Employee or salary record not found.', ['timer' => 5000]);
+            return;
+        }
+        $old_ss = $promotion->old_salary_structure;
+        $old_level = $promotion->old_grade_level;
+        $old_step = $promotion->old_step;
+        $salary = SalaryStructureTemplate::where('salary_structure_id', $old_ss)->where('grade_level', $old_level)->first();
+        if (!$salary) {
+            $this->alert('warning', 'Salary template not found for previous grade/step.', ['timer' => 5000]);
+            return;
+        }
+        $annual_salary = $salary['Step' . $old_step] ?? 0;
+        $basic_salary = round($annual_salary / 12, 2);
+        $a = SalaryAllowanceTemplate::where('salary_structure_id', $old_ss)->whereRaw('? between grade_level_from and grade_level_to', [$old_level])->get();
+        $total_allow = 0;
+        foreach ($a as $allow) {
+            if ($allow->allowance_type == 1) {
+                $amount = round($basic_salary / 100 * $allow->value, 2);
+            } else {
+                $amount = $allow->value;
+            }
+            $salary_update['A' . $allow->allowance_id] = $amount;
+            $total_allow += round($amount, 2);
+        }
+        $salary_update->save();
+        $total_deduct = 0;
+        foreach (Deduction::where('status', 1)->get() as $deduction) {
+            if ($deduction->id == 1) {
+                $paye = app(DeductionCalculation::class);
+                $a1_amount = round((float) ($salary_update->A1 ?? 0), 2);
+                $taxable_allowances = max(0, round($total_allow - $a1_amount, 2));
+                $amount = $paye->compute_tax($basic_salary, $taxable_allowances);
+            } else {
+                $dedTemp = SalaryDeductionTemplate::where('salary_structure_id', $old_ss)
+                    ->whereRaw('? between grade_level_from and grade_level_to', [$old_level])
+                    ->where('deduction_id', $deduction->id)->first();
+                if (!is_null($dedTemp)) {
+                    if ($dedTemp->deduction_type == 1) {
+                        $amount = round($basic_salary / 100 * $dedTemp->value, 2);
+                    } else {
+                        $amount = $dedTemp->value;
+                    }
+                    if ($dedTemp->deduction_id == 2 || $dedTemp->deduction_id == 3) {
+                        if ($employee->pfa_name == 10) {
+                            $amount = 0.00;
+                        }
+                    } elseif (UnionDeduction::where('deduction_id', $dedTemp->deduction_id)->get()->count() > 0) {
+                        if (UnionDeduction::where('deduction_id', $dedTemp->deduction_id)->where('union_id', $employee->staff_union)->get()->count() > 0) {
+                            $amount = $amount;
+                        } else {
+                            $amount = 0.00;
+                        }
+                    }
+                } else {
+                    $amount = $salary['D' . $deduction->id] ?? 0;
+                }
+            }
+            $salary_update['D' . $deduction->id] = $amount;
+            $total_deduct += round($amount, 2);
+        }
+        $salary_update->save();
+        $employee->grade_level = $old_level;
+        $employee->step = $old_step;
+        $employee->salary_structure = $old_ss;
+        $employee->save();
+        $salary_update->basic_salary = $basic_salary;
+        $salary_update->total_allowance = $total_allow;
+        $salary_update->total_deduction = $total_deduct;
+        $salary_update->gross_pay = round($basic_salary + $total_allow, 2);
+        $salary_update->net_pay = round($salary_update->gross_pay - $total_deduct, 2);
+        $salary_update->save();
+        $promotion->status = 2; // Reverted
+        $promotion->save();
+        $this->alert('success', 'Grade level increment reverted successfully.');
     }
 
     public function clear_record()

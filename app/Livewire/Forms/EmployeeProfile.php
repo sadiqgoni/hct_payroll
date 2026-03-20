@@ -16,6 +16,7 @@ use App\Models\Rank;
 use App\Models\Relationship;
 use App\Models\Religion;
 use App\Models\SalaryAllowanceTemplate;
+use App\Models\StepAllowanceTemplate;
 use App\Models\SalaryDeductionTemplate;
 use App\Models\SalaryStructure;
 use App\Models\SalaryStructureTemplate;
@@ -51,13 +52,14 @@ class EmployeeProfile extends Component
     public $full_name, $staff_number, $staff_category, $payroll_number, $employment_type, $status, $date_of_retirement, $date_of_first_appointment, $date_of_last_promotion,
     $post_held, $salary_structure, $grade_level, $step, $account_number, $bank_code, $bank_name, $gender, $tribe, $religion,
     $phone_number, $whatsapp_number, $email, $nationality, $state_of_origin, $local_government, $date_of_birth, $marital_status,
-    $name_of_next_of_kin, $next_of_kin_phone_number, $relationship, $contract_termination_date, $address, $profile_picture, $pension_pin, $pfa_name, $department, $rank, $unit, $arrears_months;
+    $name_of_next_of_kin, $next_of_kin_phone_number, $relationship, $contract_termination_date, $address, $profile_picture, $pension_pin, $pfa_name, $department, $rank, $unit;
     public $staff_union, $bvn, $tax_id;
     public $create, $edit, $record = true, $disabled = "disabled readonly", $view, $ids, $employeeInfo;
     public $lgas, $states, $departments, $employeeId, $depts, $search_employee;
     public $search, $filter_type, $filter_unit, $filter_dept, $orderBy = "id", $orderAsc = true, $perpage = 14;
     public $tab1 = true, $tab2, $tab3, $tab4, $show_contract = false;
     public $steps = 1;
+    public $arrears_months;
     protected $listeners = ['delete', 'cancelled'];
 
     public $form = [
@@ -227,6 +229,7 @@ class EmployeeProfile extends Component
                 'pfa_name' => 'required',
                 'bvn' => 'nullable|digits:10',
                 'tax_id' => 'nullable',
+                'arrears_months' => 'nullable|numeric|min:0',
             ],
             4 => [
                 'name_of_next_of_kin' => 'nullable',
@@ -242,14 +245,6 @@ class EmployeeProfile extends Component
         } catch (\Illuminate\Validation\ValidationException $e) {
             $firstErrorField = array_key_first($e->validator->errors()->getMessages());
             $this->steps = $this->getStepForField($firstErrorField);
-
-            // Get the first error message for notification
-            $firstErrorMessage = $e->validator->errors()->first();
-            $this->alert('error', "Please fix: {$firstErrorMessage}", [
-                'timer' => 5000,
-                'position' => 'top-right'
-            ]);
-
             throw $e;
         }
     }
@@ -279,7 +274,6 @@ class EmployeeProfile extends Component
             'pfa_name',
             'bvn',
             'tax_id' => 3,
-            'arrears_months' => 3,
 
             'employment_type',
             'unit',
@@ -303,8 +297,18 @@ class EmployeeProfile extends Component
 
     public function submit()
     {
-
-        $this->validate();
+        try {
+            $this->validate();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $firstErrorField = array_key_first($e->validator->errors()->getMessages());
+            $this->steps = $this->getStepForField($firstErrorField);
+            $firstErrorMessage = $e->validator->errors()->first();
+            $this->alert('error', "Please fix: {$firstErrorMessage}", [
+                'timer' => 8000,
+                'position' => 'top-right'
+            ]);
+            return; // Don't proceed with submission
+        }
         //        $this->staff_number=str_replace('-','',$this->staff_number);
 //        $this->payroll_number=str_replace('-','',$this->payroll_number);
         if ($this->employment_type == 1 || $this->employment_type == 3) {
@@ -446,6 +450,13 @@ class EmployeeProfile extends Component
         $a = SalaryAllowanceTemplate::where('salary_structure_id', $this->salary_structure)
             ->whereRaw('? between grade_level_from and grade_level_to', [$this->grade_level])
             ->get();
+
+        // Optional per-step overrides (e.g. Call Duty by step)
+        $stepAllowances = StepAllowanceTemplate::where('salary_structure_id', $this->salary_structure)
+            ->where('grade_level', $this->grade_level)
+            ->where('step', $this->step)
+            ->get()
+            ->keyBy('allowance_id');
         $d = SalaryDeductionTemplate::where('salary_structure_id', $this->salary_structure)
             ->whereRaw('? between grade_level_from and grade_level_to', [$this->grade_level])
             ->get();
@@ -461,10 +472,15 @@ class EmployeeProfile extends Component
                 //alowance
                 $total_allow = 0;
                 foreach ($a as $key => $allow) {
-                    if ($allow->allowance_type == 1) {
-                        $amount = round($basic_salary / 100 * $allow->value, 2);
+                    // If there is a per-step override for this allowance, use that fixed value
+                    if (isset($stepAllowances[$allow->allowance_id])) {
+                        $amount = $stepAllowances[$allow->allowance_id]->value;
                     } else {
-                        $amount = $allow->value;
+                        if ($allow->allowance_type == 1) {
+                            $amount = round($basic_salary / 100 * $allow->value, 2);
+                        } else {
+                            $amount = $allow->value;
+                        }
                     }
                     $salary_update["A$allow->allowance_id"] = $amount;
                     $total_allow += round($amount, 2);
@@ -475,13 +491,9 @@ class EmployeeProfile extends Component
                 foreach (Deduction::where('status', 1)->get() as $deduction) {
                     if ($deduction->id == 1) {
                         $paye = app(DeductionCalculation::class);
-                        $default_paye_calculation = app_settings()->paye_calculation;
-                        $default_statutory_calculation = app_settings()->statutory_deduction;
-                        if ($default_paye_calculation == 2) {
-                            $amount = $paye->paye_calculation1($basic_salary, $default_statutory_calculation);
-                        } else {
-                            $amount = $paye->paye_calculation2($basic_salary, $default_statutory_calculation);
-                        }
+                        $a1_amount = round((float) ($salary_update->A1 ?? 0), 2);
+                        $taxable_allowances = max(0, round($total_allow - $a1_amount, 2));
+                        $amount = $paye->compute_tax($basic_salary, $taxable_allowances);
 
                     } else {
 
@@ -522,9 +534,13 @@ class EmployeeProfile extends Component
                 $salary_update->basic_salary = $basic_salary;
                 $salary_update->total_allowance = $total_allow;
                 $salary_update->total_deduction = $total_deduct;
-                $total_earning = round($basic_salary + $total_allow, 2);
+                $total_earning = round($basic_salary + $total_allow + ($salary_update->salary_arears ?? 0), 2);
                 $gross_pay = $total_earning;
                 $net_pay = round($gross_pay - $salary_update->total_deduction, 2);
+                $nhis = (0.5 / 100) * $gross_pay;
+                $employer_pension = (10 / 100) * $gross_pay;
+                $salary_update->nhis = round($nhis, 2);
+                $salary_update->employer_pension = round($employer_pension, 2);
                 $salary_update->gross_pay = $gross_pay;
                 $salary_update->net_pay = $net_pay;
                 $salary_update->save();
@@ -558,11 +574,9 @@ class EmployeeProfile extends Component
                     $default_statutory_calculation = app_settings()->statutory_deduction;
                     if ($deduction->id == 1) {
                         $paye = app(DeductionCalculation::class);
-                        if ($default_paye_calculation == 2) {
-                            $amount = $paye->paye_calculation1($basic_salary, $default_statutory_calculation);
-                        } else {
-                            $amount = $paye->paye_calculation2($basic_salary, $default_statutory_calculation);
-                        }
+                        $a1_amount = round((float) ($salary_update->A1 ?? 0), 2);
+                        $taxable_allowances = max(0, round($total_allow - $a1_amount, 2));
+                        $amount = $paye->compute_tax($basic_salary, $taxable_allowances);
 
                     } else {
                         $amount = 0.00;
@@ -684,17 +698,15 @@ class EmployeeProfile extends Component
     {
         try {
             $this->validate();
+            $this->validateStep();
         } catch (\Illuminate\Validation\ValidationException $e) {
             $firstErrorField = array_key_first($e->validator->errors()->getMessages());
             $this->steps = $this->getStepForField($firstErrorField);
-
-            // Get the first error message for notification
             $firstErrorMessage = $e->validator->errors()->first();
             $this->alert('error', "Please fix: {$firstErrorMessage}", [
                 'timer' => 8000,
                 'position' => 'top-right'
             ]);
-
             return; // Don't proceed with update
         }
         //        if ($this->employment_type==1 || $this->employment_type==3){
@@ -756,21 +768,26 @@ class EmployeeProfile extends Component
 
 
         $this->employeeId = \App\Models\EmployeeProfile::where('payroll_number', $this->payroll_number)->first();
+        // Check if Salary Structure, Grade, or Step is changing
         if (
-            !\App\Models\EmployeeProfile::where('id', $profileObj->id)->where('salary_structure', $this->salary_structure)
-                ->where('grade_level', $this->grade_level)->where('step', $this->step)->exists()
+            !\App\Models\EmployeeProfile::where('id', $profileObj->id)
+                ->where('salary_structure', $this->salary_structure)
+                ->where('grade_level', $this->grade_level)
+                ->where('step', $this->step)
+                ->exists()
         ) {
 
-            // Capture Old Pay for Arrears Calculation
+            // 1. Capture Old Gross Pay
             $old_gross_pay = 0;
             $old_salary_record = \App\Models\SalaryUpdate::where('employee_id', $id)->first();
             if ($old_salary_record) {
                 $old_gross_pay = $old_salary_record->gross_pay;
             }
 
+            // 2. Perform Salary Update (calculates new gross pay)
             $this->salary_update();
 
-            // Calculate Arrears if applicable
+            // 3. Calculate Arrears
             if ($this->arrears_months > 0) {
                 $new_salary_record = \App\Models\SalaryUpdate::where('employee_id', $id)->first();
                 if ($new_salary_record) {
@@ -787,17 +804,15 @@ class EmployeeProfile extends Component
         }
         $profileObj->save();
         $this->alert('success', 'Employee record have been Updated', [
-            'timer' => 3000,
-            'onConfirmed' => 'switchToView'
+            'timer' => 9000
+            //            'progressBarTimer'=>5
         ]);
         $user = Auth::user();
         $log = new ActivityLog();
         $log->user_id = $user->id;
         $log->action = "Updated employee with payroll number  ($this->payroll_number)";
         $log->save();
-
-        // Switch to view mode after successful update
-        $this->view_emp($id);
+        //        return redirect()->route('employee.profile');
     }
     public function close()
     {
@@ -929,6 +944,7 @@ class EmployeeProfile extends Component
     public function render()
     {
         $salary_structures = SalaryStructure::where('status', 1)->get();
+        $this->states = State::where('status', 1)->get();
 
         $ranks = Rank::where('status', 1)->get();
         $categories = StaffCategory::where('status', 1)->get();

@@ -160,6 +160,7 @@ Route::middleware(['auth','is_admin','passkey','2fa'])->group(function (){
     Route::get('salary/structure',SalaryStructure::class)->name('salary.structure')->middleware('can:salary_structure');
     Route::get('salary/template',SalaryTemplate::class)->name('salary.template')->middleware('can:salary_template');
     Route::get('allowance/template',AllowanceTemplate::class)->name('allowance.template')->middleware('can:allowance_template');
+    Route::get('allowance/template/step', \App\Livewire\Pages\StepAllowanceManager::class)->name('allowance.template.step')->middleware('can:allowance_template');
     Route::get('deduction/template',DeductionTemplate::class)->name('deduction.template')->middleware('can:deduction_template');
 
 

@@ -117,19 +117,24 @@
                             <td>{{ss($promotion->salary_structure)}}</td>
                             <td>{{$promotion->level}}</td>
                             <td>{{$promotion->step}}</td>
-                            <td>{{$promotion->arrears_months ?? '-'}}</td>
+                            <td>{{$promotion->arrears_months}}</td>
                             <td>
                                 @if($promotion->status == 1)
                                     <span class="badge badge-success"><em>Done</em></span>
+                                @elseif($promotion->status == 2)
+                                    <span class="badge badge-secondary"><em>Reverted</em></span>
                                 @else
                                     <span class="badge badge-warning"><em>Pending</em></span>
-
                                 @endif
                             </td>
                             <td>
                                 <button style="width: 55px !important;padding: 1px !important;"
                                     class="btn btn-danger float-right" wire:click="deleteId({{$promotion->id}})">Delete</button>
-                                @if($promotion->status != 1)
+                                @if($promotion->status == 1)
+                                    <button style="width: 55px !important;padding: 1px !important;" class="btn btn-warning float-right mr-1"
+                                        wire:click="confirmRevertPromotion({{$promotion->id}})">Revert</button>
+                                @endif
+                                @if($promotion->status != 1 && $promotion->status != 2)
                                     <button style="width: 55px !important;padding: 1px !important;" class="btn edit_btn float-right"
                                         wire:click="edit_record({{$promotion->id}})">Edit</button>
                                 @endif
@@ -188,308 +193,305 @@
         </div>
     @endif
     @if($create == true)
-        <div class="row">
-            <div class="col-12 col-md-10 offset-md-1">
-                <form wire:submit.prevent="store">
-                    <fieldset>
-                        <legend>
-                            <h6 class="">Add Staff Promotion</h6>
-                        </legend>
-                        <div class="row">
-                            <div class="col-12 col-md-6">
-                                @error('payroll_number')
-                                    <small class="text-danger">{{$message}}</small>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text"><span
-                                                class="d-none d-md-inline">Payroll</span> Number</span></div>
-                                    <input class="form-control @error('payroll_number') is-invalid @enderror"
-                                        wire:model.lazy="payroll_number" type="text">
-                                    <div class="input-group-append"></div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                @error('staff_number')
-                                    <small class="text-danger">{{$message}}</small>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text"><span
-                                                class="d-none d-md-inline">Staff</span> Number</span></div>
-                                    <input class="form-control @error('staff_number') is-invalid @enderror"
-                                        wire:model.lazy="staff_number" type="text">
-                                    <div class="input-group-append"></div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-12">
-                                @error('staff_name')
-                                    <small class="text-danger">{{$message}}</small>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text"><span
-                                                class="d-none d-md-inline">Staff</span> Name</span></div>
-                                    <input class="form-control @error('staff_name') is-invalid @enderror"
-                                        wire:model.lazy="staff_name" disabled readonly type="text">
-                                    <div class="input-group-append"></div>
-                                </div>
-                            </div>
-
-                            <div class="col-12 col-md-4">
-                                @error('salary_structure')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Salary Structure</span>
+            <div class="row">
+                <div class="col-12 col-md-10 offset-md-1">
+                    <form wire:submit.prevent="store">
+                        <fieldset>
+                            <legend>
+                                <h6 class="">Add Staff Promotion</h6>
+                            </legend>
+                            <div class="row">
+                                <div class="col-12 col-md-6">
+                                    @error('payroll_number')
+                                        <small class="text-danger">{{$message}}</small>
+                                    @enderror
+                                    <div class="input-group form-group">
+                                        <div class="input-group-prepend"><span class="input-group-text"><span
+                                                    class="d-none d-md-inline">Payroll</span> Number</span></div>
+                                        <input class="form-control @error('payroll_number') is-invalid @enderror"
+                                            wire:model.lazy="payroll_number" type="text">
+                                        <div class="input-group-append"></div>
                                     </div>
-                                    <select class="form-control @error('salary_structure') is-invalid @enderror"
-                                        name="salary_structure" wire:model.blur="salary_structure">
-                                        <option value="">Salary Structure</option>
-                                        @foreach(\App\Models\SalaryStructure::where('status', 1)->get() as $salary)
-                                            <option value="{{$salary->id}}">{{$salary->name}}</option>
-                                        @endforeach
-                                    </select>
-                                    <div class="input-group-append"></div>
                                 </div>
-                            </div>
-
-                            <div class="col-12 col-md-4">
-                                @error('level')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
-                                @php
-                                    if (!is_null($salary_structure)) {
-                                        $salObj = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $this->salary_structure)->select('grade_level')->get();
-
-                                    }
-                                @endphp
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Grade Level From</span>
+                                <div class="col-12 col-md-6">
+                                    @error('staff_number')
+                                        <small class="text-danger">{{$message}}</small>
+                                    @enderror
+                                    <div class="input-group form-group">
+                                        <div class="input-group-prepend"><span class="input-group-text"><span
+                                                    class="d-none d-md-inline">Staff</span> Number</span></div>
+                                        <input class="form-control @error('staff_number') is-invalid @enderror"
+                                            wire:model.lazy="staff_number" type="text">
+                                        <div class="input-group-append"></div>
                                     </div>
-                                    <select class="form-control @error('level') is-invalid @enderror" name="level"
-                                        wire:model.blur="level" type="number">
-                                        <option value="">Select Grade Level</option>
-                                        @if($this->salary_structure != '')
-                                            @foreach($salObj as $obj)
-                                                <option value="{{$obj->grade_level}}">Grade {{$obj->grade_level}}</option>
+                                </div>
+                                <div class="col-12 col-md-12">
+                                    @error('staff_name')
+                                        <small class="text-danger">{{$message}}</small>
+                                    @enderror
+                                    <div class="input-group form-group">
+                                        <div class="input-group-prepend"><span class="input-group-text"><span
+                                                    class="d-none d-md-inline">Staff</span> Name</span></div>
+                                        <input class="form-control @error('staff_name') is-invalid @enderror"
+                                            wire:model.lazy="staff_name" disabled readonly type="text">
+                                        <div class="input-group-append"></div>
+                                    </div>
+                                </div>
 
+                                <div class="col-12 col-md-4">
+                                    @error('salary_structure')
+                                        <strong class="text-danger d-block form-text">{{$message}}</strong>
+                                    @enderror
+                                    <div class="input-group form-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">Salary Structure</span>
+                                        </div>
+                                        <select class="form-control @error('salary_structure') is-invalid @enderror"
+                                            name="salary_structure" wire:model.blur="salary_structure">
+                                            <option value="">Salary Structure</option>
+                                            @foreach(\App\Models\SalaryStructure::where('status', 1)->get() as $salary)
+                                                <option value="{{$salary->id}}">{{$salary->name}}</option>
                                             @endforeach
-                                        @endif
-                                    </select>
-                                    <div class="input-group-append"></div>
+                                        </select>
+                                        <div class="input-group-append"></div>
+                                    </div>
                                 </div>
-                            </div>
 
+                                <div class="col-12 col-md-4">
+                                    @error('level')
+                                        <strong class="text-danger d-block form-text">{{$message}}</strong>
+                                    @enderror
+                                    @php
+                                        if (!is_null($salary_structure)) {
+                                            $salObj = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $this->salary_structure)->select('grade_level')->get();
 
-                            <div class="col-12 col-md-4">
-                                @error('step')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
+                                        }
+                                    @endphp
+                                    <div class="input-group form-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">Grade Level From</span>
+                                        </div>
+                                        <select class="form-control @error('level') is-invalid @enderror" name="level"
+                                            wire:model.blur="level" type="number">
+                                            <option value="">Select Grade Level</option>
+                                            @if($this->salary_structure != '')
+                                                @foreach($salObj as $obj)
+                                                    <option value="{{$obj->grade_level}}">Grade {{$obj->grade_level}}</option>
 
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Step</span></div>
-                                    <select class="form-control @error('step') is-invalid @enderror" wire:model.blur="step">
-                                        @if(!is_null($salObj) && !is_null($salary_structure))
-                                            @php
-                                                $step_no = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $salary_structure)
-                                                    ->where('grade_level', $level)
-                                                    ->first()
-                                            @endphp
-                                            <option value="">Select Step</option>
-                                            @if(!is_null($step_no))
-                                                @for($i = 1; $i <= $step_no->no_of_grade_steps; $i++)
-                                                    <option value="{{$i}}">Step {{$i}}</option>
-                                                @endfor
+                                                @endforeach
                                             @endif
-                                        @endif
+                                        </select>
+                                        <div class="input-group-append"></div>
+                                    </div>
+                                </div>
+
+
+                                <div class="col-12 col-md-4">
+                                    @error('step')
+                                        <strong class="text-danger d-block form-text">{{$message}}</strong>
+                                    @enderror
+
+                                    <div class="input-group form-group">
+                                        <div class="input-group-prepend"><span class="input-group-text">Step</span></div>
+                                        <select class="form-control @error('step') is-invalid @enderror" wire:model.blur="step">
+                                            @if(!is_null($salObj) && !is_null($salary_structure))
+                                                @php
+                                                    $step_no = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $salary_structure)
+                                                        ->where('grade_level', $level)
+                                                        ->first()
+                                                @endphp
+                                                <option value="">Select Step</option>
+                                                @if(!is_null($step_no))
+                                                    @for($i = 1; $i <= $step_no->no_of_grade_steps; $i++)
+                                                        <option value="{{$i}}">Step {{$i}}</option>
+                                                    @endfor
+                                                @endif
+                                            @endif
 
 
 
-                                    </select>
-                                    <div class="input-group-append"></div>
+                                        </select>
+                                        <div class="input-group-append"></div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-12 col-md-4">
                                 @error('arrears_months')
                                     <strong class="text-danger d-block form-text">{{$message}}</strong>
                                 @enderror
-
                                 <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Arrears (Months)</span>
-                                    </div>
+                                    <div class="input-group-prepend"><span class="input-group-text">Arrears Months</span></div>
                                     <input class="form-control @error('arrears_months') is-invalid @enderror"
-                                        wire:model.lazy="arrears_months" type="number" min="0">
+                                        wire:model.blur="arrears_months" type="number" min="0">
                                     <div class="input-group-append"></div>
                                 </div>
                             </div>
-                        </div>
+                </div>
 
 
 
-                    </fieldset>
+                </fieldset>
 
-                    <div class="row mt-3">
-                        <div class="col-12 col-md-8"><button class="btn save_btn" type="submit">Save</button>
-                            <button class="btn close_btn mt-2 mt-md-0 " wire:click.prevent="close">Close</button>
-                        </div>
+                <div class="row mt-3">
+                    <div class="col-12 col-md-8"><button class="btn save_btn" type="submit">Save</button>
+                        <button class="btn close_btn mt-2 mt-md-0 " wire:click.prevent="close">Close</button>
                     </div>
+                </div>
                 </form>
 
             </div>
         </div>
     @endif
-    @if($edit == true)
-        <div class="row">
-            <div class="col-12 col-md-10 offset-md-1">
-                <form wire:submit.prevent="update({{$ids}})">
-                    <fieldset>
-                        <legend>
-                            <h6 class="">Update Staff Promotion</h6>
-                        </legend>
-                        <div class="row">
-                            <div class="col-12 col-md-6">
-                                @error('payroll_number')
-                                    <small class="text-danger">{{$message}}</small>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text"><span
-                                                class="d-none d-md-inline">Payroll</span> Number</span></div>
-                                    <input class="form-control @error('payroll_number') is-invalid @enderror"
-                                        wire:model.lazy="payroll_number" type="text">
-                                    <div class="input-group-append"></div>
-                                </div>
+@if($edit == true)
+    <div class="row">
+        <div class="col-12 col-md-10 offset-md-1">
+            <form wire:submit.prevent="update({{$ids}})">
+                <fieldset>
+                    <legend>
+                        <h6 class="">Update Staff Promotion</h6>
+                    </legend>
+                    <div class="row">
+                        <div class="col-12 col-md-6">
+                            @error('payroll_number')
+                                <small class="text-danger">{{$message}}</small>
+                            @enderror
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text"><span
+                                            class="d-none d-md-inline">Payroll</span> Number</span></div>
+                                <input class="form-control @error('payroll_number') is-invalid @enderror"
+                                    wire:model.lazy="payroll_number" type="text">
+                                <div class="input-group-append"></div>
                             </div>
-                            <div class="col-12 col-md-6">
-                                @error('staff_number')
-                                    <small class="text-danger">{{$message}}</small>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text"><span
-                                                class="d-none d-md-inline">Staff</span> Number</span></div>
-                                    <input class="form-control @error('staff_number') is-invalid @enderror"
-                                        wire:model.lazy="staff_number" readonly disabled type="text">
-                                    <div class="input-group-append"></div>
-                                </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            @error('staff_number')
+                                <small class="text-danger">{{$message}}</small>
+                            @enderror
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text"><span
+                                            class="d-none d-md-inline">Staff</span> Number</span></div>
+                                <input class="form-control @error('staff_number') is-invalid @enderror"
+                                    wire:model.lazy="staff_number" readonly disabled type="text">
+                                <div class="input-group-append"></div>
                             </div>
-                            <div class="col-12 col-md-12">
-                                @error('staff_name')
-                                    <small class="text-danger">{{$message}}</small>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text"><span
-                                                class="d-none d-md-inline">Staff</span> Name</span></div>
-                                    <input class="form-control @error('staff_name') is-invalid @enderror"
-                                        wire:model.lazy="staff_name" disabled readonly type="text">
-                                    <div class="input-group-append"></div>
-                                </div>
+                        </div>
+                        <div class="col-12 col-md-12">
+                            @error('staff_name')
+                                <small class="text-danger">{{$message}}</small>
+                            @enderror
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text"><span
+                                            class="d-none d-md-inline">Staff</span> Name</span></div>
+                                <input class="form-control @error('staff_name') is-invalid @enderror"
+                                    wire:model.lazy="staff_name" disabled readonly type="text">
+                                <div class="input-group-append"></div>
                             </div>
+                        </div>
 
-                            <div class="col-12 col-md-4">
-                                @error('salary_structure')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Salary Structure</span>
-                                    </div>
-                                    <select class="form-control @error('salary_structure') is-invalid @enderror"
-                                        name="salary_structure" wire:model.blur="salary_structure">
-                                        <option value="">Salary Structure</option>
-                                        @foreach(\App\Models\SalaryStructure::where('status', 1)->get() as $salary)
-                                            <option value="{{$salary->id}}">{{$salary->name}}</option>
+                        <div class="col-12 col-md-4">
+                            @error('salary_structure')
+                                <strong class="text-danger d-block form-text">{{$message}}</strong>
+                            @enderror
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text">Salary Structure</span>
+                                </div>
+                                <select class="form-control @error('salary_structure') is-invalid @enderror"
+                                    name="salary_structure" wire:model.blur="salary_structure">
+                                    <option value="">Salary Structure</option>
+                                    @foreach(\App\Models\SalaryStructure::where('status', 1)->get() as $salary)
+                                        <option value="{{$salary->id}}">{{$salary->name}}</option>
+                                    @endforeach
+                                </select>
+                                <div class="input-group-append"></div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            @error('level')
+                                <strong class="text-danger d-block form-text">{{$message}}</strong>
+                            @enderror
+                            @php
+                                if (!is_null($salary_structure)) {
+                                    $salObj = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $this->salary_structure)->select('grade_level')->get();
+
+                                }
+                            @endphp
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text">Grade Level From</span>
+                                </div>
+                                <select class="form-control @error('level') is-invalid @enderror" name="level"
+                                    wire:model.blur="level" type="number">
+                                    <option value="">Select Grade Level</option>
+                                    @if($this->salary_structure != '')
+                                        @foreach($salObj as $obj)
+                                            <option value="{{$obj->grade_level}}">Grade {{$obj->grade_level}}</option>
+
                                         @endforeach
-                                    </select>
-                                    <div class="input-group-append"></div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                @error('level')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
-                                @php
-                                    if (!is_null($salary_structure)) {
-                                        $salObj = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $this->salary_structure)->select('grade_level')->get();
-
-                                    }
-                                @endphp
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Grade Level From</span>
-                                    </div>
-                                    <select class="form-control @error('level') is-invalid @enderror" name="level"
-                                        wire:model.blur="level" type="number">
-                                        <option value="">Select Grade Level</option>
-                                        @if($this->salary_structure != '')
-                                            @foreach($salObj as $obj)
-                                                <option value="{{$obj->grade_level}}">Grade {{$obj->grade_level}}</option>
-
-                                            @endforeach
-                                        @endif
-                                    </select>
-                                    <div class="input-group-append"></div>
-                                </div>
-                            </div>
-
-
-                            <div class="col-12 col-md-4">
-                                @error('step')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
-
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Step</span></div>
-                                    <select class="form-control @error('step') is-invalid @enderror" wire:model.blur="step">
-                                        @if(!is_null($salObj) && !is_null($salary_structure))
-                                            @php
-                                                $step_no = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $salary_structure)
-                                                    ->where('grade_level', $level)
-                                                    ->first()
-                                            @endphp
-                                            <option value="">Select Step</option>
-                                            @if(!is_null($step_no))
-                                                @for($i = 1; $i <= $step_no->no_of_grade_steps; $i++)
-                                                    <option value="{{$i}}">Step {{$i}}</option>
-                                                @endfor
-                                            @endif
-                                        @endif
-
-
-
-                                    </select>
-                                    <div class="input-group-append"></div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                @error('arrears_months')
-                                    <strong class="text-danger d-block form-text">{{$message}}</strong>
-                                @enderror
-
-                                <div class="input-group form-group">
-                                    <div class="input-group-prepend"><span class="input-group-text">Arrears (Months)</span>
-                                    </div>
-                                    <input class="form-control @error('arrears_months') is-invalid @enderror"
-                                        wire:model.lazy="arrears_months" type="number" min="0">
-                                    <div class="input-group-append"></div>
-                                </div>
+                                    @endif
+                                </select>
+                                <div class="input-group-append"></div>
                             </div>
                         </div>
 
 
+                        <div class="col-12 col-md-4">
+                            @error('step')
+                                <strong class="text-danger d-block form-text">{{$message}}</strong>
+                            @enderror
 
-                    </fieldset>
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text">Step</span></div>
+                                <select class="form-control @error('step') is-invalid @enderror" wire:model.blur="step">
+                                    @if(!is_null($salObj) && !is_null($salary_structure))
+                                        @php
+                                            $step_no = \App\Models\SalaryStructureTemplate::where('salary_structure_id', $salary_structure)
+                                                ->where('grade_level', $level)
+                                                ->first()
+                                        @endphp
+                                        <option value="">Select Step</option>
+                                        @if(!is_null($step_no))
+                                            @for($i = 1; $i <= $step_no->no_of_grade_steps; $i++)
+                                                <option value="{{$i}}">Step {{$i}}</option>
+                                            @endfor
+                                        @endif
+                                    @endif
 
-                    <div class="row mt-3">
-                        <div class="col-12 col-md-8"><button class="btn save_btn" type="submit">Update</button>
-                            <button class="btn close_btn mt-2 mt-md-0 " wire:click.prevent="close">Close</button>
+
+
+                                </select>
+                                <div class="input-group-append"></div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            @error('arrears_months')
+                                <strong class="text-danger d-block form-text">{{$message}}</strong>
+                            @enderror
+                            <div class="input-group form-group">
+                                <div class="input-group-prepend"><span class="input-group-text">Arrears Months</span></div>
+                                <input class="form-control @error('arrears_months') is-invalid @enderror"
+                                    wire:model.blur="arrears_months" type="number" min="0">
+                                <div class="input-group-append"></div>
+                            </div>
                         </div>
                     </div>
-                </form>
 
-            </div>
+
+
+                </fieldset>
+
+                <div class="row mt-3">
+                    <div class="col-12 col-md-8"><button class="btn save_btn" type="submit">Update</button>
+                        <button class="btn close_btn mt-2 mt-md-0 " wire:click.prevent="close">Close</button>
+                    </div>
+                </div>
+            </form>
+
         </div>
+    </div>
 
-    @endif
+@endif
 
-    @section('title')
-        Staff Promotion
-    @endsection
-    @section('page_title')
-        Payroll Update / Staff Promotion
-    @endsection
+@section('title')
+    Staff Promotion
+@endsection
+@section('page_title')
+    Payroll Update / Staff Promotion
+@endsection
 </div>

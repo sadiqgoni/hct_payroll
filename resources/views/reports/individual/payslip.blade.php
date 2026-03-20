@@ -53,9 +53,11 @@
         <p class="page">Page </p>
     </div>
     <?php
-$allowance = App\Models\Allowance::all();
-
-?>
+    $allowances = \App\Models\Allowance::where('status', 1)
+        ->whereNotIn('id', [9, 10])
+        ->get();
+    $deductions = \App\Models\Deduction::where('status', 1)->get();
+    ?>
 
     @forelse($payslips as $paySlip)
         <?php
@@ -128,15 +130,11 @@ $allowance = App\Models\Allowance::all();
         <table style="width: 75%;margin-left: 3%;font-size: 13px !important;">
 
             @php
-                $step = \App\Models\EmployeeProfile::where('staff_number', $paySlip->pf_number)->first()->step;
+                $empProfile = \App\Models\EmployeeProfile::where('staff_number', $paySlip->pf_number)->first();
+                $step = $empProfile ? $empProfile->step : $paySlip->step;
             @endphp
 
             <tbody>
-                @php
-                    $allowances = \App\Models\Allowance::where('status', 1)->get();
-                    $deductions = \App\Models\Deduction::where('status', 1)->get();
-                    $maxRows = max($allowances->count(), $deductions->count() - 1);
-                @endphp
                 <tr>
                     <td style="margin-top: 40px;">Basic Sal: <br> Sal Arrears: </td>
                     <td style="text-align: right"> {{round($paySlip->basic_salary, 2)}}
@@ -144,42 +142,38 @@ $allowance = App\Models\Allowance::all();
                     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                     </td>
 
-                    <td colspan="2"><b>Deductions</b></td>
+                    <td colspan="2"></td>
                 </tr>
                 <tr>
                     <td colspan="2"><b>Allowances</b></td>
-                    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    </td>
-
-                    @if($deductions->count() > 0)
-                        <td>{{$deductions[0]->deduction_name}}:</td>
-                        <td style="text-align: right">{{number_format($paySlip->{'D' . $deductions[0]->id}, 2)}}
-                            <sup>@if(array_key_exists('D' . $deductions[0]->id, $loan)){{$loan['D' . $deductions[0]->id]}}@endif</sup>
-                        </td>
-                    @else
-                        <td colspan="2"></td>
-                    @endif
+                    <td>&nbsp;</td>
+                    <td colspan="2"><b>Deductions</b></td>
                 </tr>
 
-                @for($i = 0; $i < $maxRows; $i++)
+                @php
+                    $max = max($allowances->count(), $deductions->count());
+                @endphp
+
+                @for($i = 0; $i < $max; $i++)
                     <tr>
                         @if(isset($allowances[$i]))
-                            <td>{{$allowances[$i]->allowance_name}}: </td>
-                            <td style="text-align: right">{{number_format($paySlip->{'A' . $allowances[$i]->id}, 2)}}</td>
+                            <td>{{ $allowances[$i]->allowance_name }}:</td>
+                            <td style="text-align: right">{{ number_format($paySlip->{'A' . $allowances[$i]->id}, 2) }}</td>
                         @else
-                            <td colspan="2"></td>
+                            <td></td>
+                            <td></td>
                         @endif
 
-                        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        </td>
+                        <td>&nbsp;</td>
 
-                        @if(isset($deductions[$i + 1]))
-                            <td>{{$deductions[$i + 1]->deduction_name}}: </td>
-                            <td style="text-align: right">{{number_format($paySlip->{'D' . $deductions[$i + 1]->id}, 2)}}
-                                <sup>@if(array_key_exists('D' . $deductions[$i + 1]->id, $loan)){{$loan['D' . $deductions[$i + 1]->id]}}@endif</sup>
+                        @if(isset($deductions[$i]))
+                            <td>{{ $deductions[$i]->deduction_name }}:</td>
+                            <td style="text-align: right">{{ number_format($paySlip->{'D' . $deductions[$i]->id}, 2) }}
+                                <sup>@if(array_key_exists('D' . $deductions[$i]->id, $loan)){{$loan['D' . $deductions[$i]->id]}}@endif</sup>
                             </td>
                         @else
-                            <td colspan="2"></td>
+                            <td></td>
+                            <td></td>
                         @endif
                     </tr>
                 @endfor
