@@ -12,6 +12,9 @@ class SalaryHistory extends Model
     use HasFactory;
     protected $fillable=[
         'id',
+        'employee_id',
+        'salary_posting_batch_id',
+        'salary_posting_batch_name',
         'salary_month',
         'salary_year',
         'pf_number',
@@ -109,6 +112,11 @@ class SalaryHistory extends Model
         'nhis',
         'employer_pension'
     ];
+
+    public function postingBatch()
+    {
+        return $this->belongsTo(SalaryPostingBatch::class, 'salary_posting_batch_id');
+    }
 
     public function get_month($data)
     {

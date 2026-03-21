@@ -16,6 +16,7 @@ use App\Models\Department;
 use App\Models\EmployeeProfile;
 use App\Models\EmploymentType;
 use App\Models\SalaryHistory;
+use App\Models\SalaryPostingBatch;
 use App\Models\SalaryStructure;
 use App\Models\StaffCategory;
 use App\Models\TemporaryBankPaymentSummary;
@@ -34,6 +35,7 @@ use function Monolog\toArray;
 class PayrollReportCenter extends Component
 {
     public $employee_type,$staff_category,$unit,$department,$month,$year,$salary_structure,$grade_level_from,$grade_level_to;
+    public $salary_posting_batch_id;
     public $report_type=1,  $group_by, $order_by="id", $orderAsc='asc',$show_group_by;
     public $date_from,$date_to;
     public $types,$categories,$units,$salary_structures,$departments;
@@ -103,6 +105,36 @@ class PayrollReportCenter extends Component
         $this->payment_reports=[];
         $this->pfa_payment_schedules=[];
     }
+    protected function salaryHistoryQuery()
+    {
+        return SalaryHistory::query()
+            ->when($this->salary_structure,function ($query){
+                return $query->where('salary_structure',ss($this->salary_structure));
+            })
+            ->when($this->department,function ($query){
+                return $query->where('department',dept($this->department));
+            })
+            ->when($this->employee_type,function ($query){
+                return $query->where('employment_type',emp_type($this->employee_type));
+            })
+            ->when($this->staff_category,function ($query){
+                return $query->where('staff_category',staff_cat($this->staff_category));
+            })
+            ->when($this->staff_number,function ($query){
+                return $query->where('pf_number',$this->staff_number);
+            })
+            ->when($this->unit,function ($query){
+                return $query->where('unit',$this->unit);
+            })
+            ->when($this->salary_posting_batch_id,function ($query){
+                return $query->where('salary_posting_batch_id',$this->salary_posting_batch_id);
+            })
+            ->when($this->grade_level_from,function ($query){
+                return $query->whereBetween('grade_level',[$this->grade_level_from,$this->grade_level_to]);
+            })
+            ->whereBetween('salary_year', [Carbon::parse($this->date_from)->format('Y'), Carbon::parse($this->date_to)->format('Y')])
+            ->whereBetween('salary_month', [Carbon::parse($this->date_from)->format('F'), Carbon::parse($this->date_to)->format('F')]);
+    }
     public function payroll()
     {
 
@@ -116,28 +148,9 @@ class PayrollReportCenter extends Component
             $arrange="department";
         }
 
-        $reports=SalaryHistory::when($this->salary_structure,function ($query){
-            return $query->where('salary_structure',ss($this->salary_structure));
-        })
-            ->when($this->department,function ($query){
-                return $query->where('department',dept($this->department));
-            })
-            ->when($this->employee_type,function ($query){
-                return $query->where('employment_type',emp_type($this->employee_type));
-            })
-            ->when($this->staff_category,function ($query){
-                return $query->where('staff_category',staff_cat($this->staff_category));
-            })
-            ->when($this->grade_level_from,function ($query){
-                return $query->whereBetween('grade_level',[$this->grade_level_from,$this->grade_level_to]);
-            })
-//            ->where(DB::raw("CONCAT(salary_year, ' ', salary_month) as month_year"))
-            ->whereBetween('salary_year', [Carbon::parse($this->date_from)->format('Y'), Carbon::parse($this->date_to)->format('Y')])
-            ->whereBetween('salary_month', [Carbon::parse($this->date_from)->format('F'), Carbon::parse($this->date_to)->format('F')])
-//            ->whereBetween('salary_month', [Carbon::parse($this->date_from)->format('F'), Carbon::parse($this->date_to)->format('F')])
+        $reports=$this->salaryHistoryQuery()
             ->orderBy($this->order_by,$this->orderAsc)
             ->orderBy($arrange,$this->orderAsc)
-//            ->limit(10)
             ->get();
         if ($reports->count()>0){
             $payrolls=array();
@@ -156,27 +169,7 @@ class PayrollReportCenter extends Component
     }
     public function pay_slip()
     {
-        $this->paySlips=SalaryHistory::when($this->salary_structure,function ($query,){
-            return $query->where('salary_structure',ss($this->salary_structure));
-        })
-            ->when($this->department,function ($query){
-                return $query->where('department',dept($this->department));
-            })
-            ->when($this->employee_type,function ($query){
-                return $query->where('employment_type',emp_type($this->employee_type));
-            })
-            ->when($this->staff_category,function ($query){
-                return $query->where('staff_category',staff_cat($this->staff_category));
-            })
-            ->when($this->grade_level_from,function ($query){
-                return $query->whereBetween('grade_level',[$this->grade_level_from,$this->grade_level_to]);
-            })
-            ->when($this->staff_number,function ($query){
-                return $query->where('pf_number',$this->staff_number);
-            })
-
-            ->whereBetween('salary_month', [Carbon::parse($this->date_from)->format('F'),Carbon::parse($this->date_to)->format('F')])
-            ->whereBetween('salary_year', [Carbon::parse($this->date_from)->format('Y'),Carbon::parse($this->date_to)->format('Y')])
+        $this->paySlips=$this->salaryHistoryQuery()
             ->orderBy("$this->order_by",$this->orderAsc)
             ->get();
         if ($this->paySlips->count()>0){
@@ -188,27 +181,7 @@ class PayrollReportCenter extends Component
 
     }
     public function confirmed(){
-        $datas=SalaryHistory::when($this->salary_structure,function ($query,){
-            return $query->where('salary_structure',ss($this->salary_structure));
-        })
-            ->when($this->department,function ($query){
-                return $query->where('department',dept($this->department));
-            })
-            ->when($this->employee_type,function ($query){
-                return $query->where('employment_type',emp_type($this->employee_type));
-            })
-            ->when($this->staff_category,function ($query){
-                return $query->where('staff_category',staff_cat($this->staff_category));
-            })
-            ->when($this->grade_level_from,function ($query){
-                return $query->whereBetween('grade_level',[$this->grade_level_from,$this->grade_level_to]);
-            })
-            ->when($this->staff_number,function ($query){
-                return $query->where('pf_number',$this->staff_number);
-            })
-
-            ->whereBetween('salary_month', [Carbon::parse($this->date_from)->format('F'),Carbon::parse($this->date_to)->format('F')])
-            ->whereBetween('salary_year', [Carbon::parse($this->date_from)->format('Y'),Carbon::parse($this->date_to)->format('Y')])
+        $datas=$this->salaryHistoryQuery()
             ->orderBy("$this->order_by",$this->orderAsc)
             ->get();
         if ($datas->count() >0) {
@@ -1413,10 +1386,19 @@ if ($salaryObjs->count()>0) {
         $this->types=EmploymentType::all();
         $this->categories=StaffCategory::all();
         $this->salary_structures=SalaryStructure::where('status',1)->get();
+        $salaryPostingBatches=SalaryPostingBatch::query()
+            ->whereIn('id', SalaryHistory::query()
+                ->whereNotNull('salary_posting_batch_id')
+                ->select('salary_posting_batch_id')
+                ->distinct()
+            )
+            ->orderByDesc('salary_year')
+            ->orderByDesc('id')
+            ->get();
         $banks=Bank::get();
         $this->units=Unit::where('status',1)->get();
         $deductions=Deduction::get();
 
-        return view('livewire.reports.payroll-report-center',compact('banks','deductions'))->extends('components.layouts.app');
+        return view('livewire.reports.payroll-report-center',compact('banks','deductions','salaryPostingBatches'))->extends('components.layouts.app');
     }
 }

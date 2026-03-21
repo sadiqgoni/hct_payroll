@@ -107,6 +107,24 @@
                         </div>
 
                     </div>
+                    @if($report_type == 1 || $report_type == 2)
+                        <div class="row">
+                            <div class="col-12 col-lg-6">
+                                <div class="input-group form-group">
+                                    <div class="input-group-prepend"><span class="input-group-text">Salary Batch</span></div>
+                                    <select class="form-control" wire:model.live="salary_posting_batch_id" name="salary_posting_batch_id">
+                                        <option value="">All Posted Staff</option>
+                                        @foreach($salaryPostingBatches as $batch)
+                                            <option value="{{$batch->id}}">
+                                                {{$batch->batch_name}} ({{$batch->salary_month}} {{$batch->salary_year}})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <div class="input-group-append"></div>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
                     @include('livewire.forms.ssd')
 
 

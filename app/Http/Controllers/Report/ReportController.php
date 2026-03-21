@@ -73,6 +73,36 @@ public $orderBy='id';
                 $this->employer_pension($request);
         }
     }
+    protected function salaryHistoryQuery(Request $request)
+    {
+        return SalaryHistory::query()
+            ->when($request->salary_structure,function ($query) use ($request){
+                return $query->where('salary_structure',ss($request->salary_structure));
+            })
+            ->when($request->department,function ($query) use ($request){
+                return $query->where('department',dept($request->department));
+            })
+            ->when($request->employee_type,function ($query) use ($request){
+                return $query->where('employment_type',emp_type($request->employee_type));
+            })
+            ->when($request->staff_category,function ($query) use ($request){
+                return $query->where('staff_category',staff_cat($request->staff_category));
+            })
+            ->when($request->staff_number,function ($query) use ($request){
+                return $query->where('pf_number',$request->staff_number);
+            })
+            ->when($request->unit,function ($query) use ($request){
+                return $query->where('unit',$request->unit);
+            })
+            ->when($request->salary_posting_batch_id,function ($query) use ($request){
+                return $query->where('salary_posting_batch_id',$request->salary_posting_batch_id);
+            })
+            ->when($request->grade_level_from,function ($query) use ($request){
+                return $query->whereBetween('grade_level',[$request->grade_level_from,$request->grade_level_to]);
+            })
+            ->whereBetween('salary_month', [Carbon::parse($request->date_from)->format('F'),Carbon::parse($request->date_to)->format('F')])
+            ->whereBetween('salary_year', [Carbon::parse($request->date_from)->format('Y'),Carbon::parse($request->date_to)->format('Y')]);
+    }
     public function payroll_report(Request $request)
     {
         if ($request->order_by != ''){
@@ -90,55 +120,17 @@ public $orderBy='id';
         ini_set('memory_limit', '2048M');
         set_time_limit(2000);
 
-        $reports=SalaryHistory::when($request->salary_structure,function ($query){
-            return $query->where('salary_structure',ss(request()->salary_structure));
-        })
-            ->when($request->department,function ($query){
-                return $query->where('department',dept(request()->department));
-            })
-            ->when($request->employee_type,function ($query){
-                return $query->where('employment_type',emp_type(request()->employee_type));
-            })
-            ->when($request->staff_category,function ($query){
-                return $query->where('staff_category',staff_cat(request()->staff_category));
-            })
-
-            ->when($request->grade_level_from,function ($query){
-                return $query->whereBetween('grade_level',[request()->grade_level_from,request()->grade_level_to]);
-            })
-            ->when($request->staff_number,function ($query){
-                return $query->where('pf_number',request()->staff_number);
-            })
-
-            ->whereBetween('salary_month', [Carbon::parse($request->date_from)->format('F'),Carbon::parse($request->date_to)->format('F')])
-            ->whereBetween('salary_year', [Carbon::parse($request->date_from)->format('Y'),Carbon::parse($request->date_to)->format('Y')])
-            ->orderBy($request->group_by)->orderBy($this->orderBy,$request->order)->get()->groupBy($request->group_by)->sortKeys();
+        $groupBy = $request->group_by ?: 'department';
+        $reports=$this->salaryHistoryQuery($request)
+            ->orderBy($groupBy)
+            ->orderBy($this->orderBy,$request->order)
+            ->get()
+            ->groupBy($groupBy)
+            ->sortKeys();
 
 
 
-
-        $summaries=SalaryHistory::when($request->salary_structure,function ($query,){
-            return $query->where('salary_structure',ss(request()->salary_structure));
-        })
-            ->when($request->department,function ($query){
-                return $query->where('department',dept(request()->department));
-            })
-            ->when($request->employee_type,function ($query){
-                return $query->where('employment_type',emp_type(request()->employee_type));
-            })
-            ->when($request->staff_category,function ($query){
-                return $query->where('staff_category',staff_cat(request()->staff_category));
-            })
-
-            ->when($request->grade_level_from,function ($query){
-                return $query->whereBetween('grade_level',[request()->grade_level_from,request()->grade_level_to]);
-            })
-            ->when($request->staff_number,function ($query){
-                return $query->where('pf_number',request()->staff_number);
-            })
-            ->whereBetween('salary_month', [Carbon::parse($request->date_from)->format('F'),Carbon::parse($request->date_to)->format('F')])
-            ->whereBetween('salary_year', [Carbon::parse($request->date_from)->format('Y'),Carbon::parse($request->date_to)->format('Y')])
-           ->get();
+        $summaries=$this->salaryHistoryQuery($request)->get();
         if ($reports->count()>0){
             $payrolls=array();
             foreach ($reports as $report)
@@ -147,8 +139,8 @@ public $orderBy='id';
             }
             $payrolls=collect($payrolls);
 
-            $name_search=$request->group_by;
-            $name=$request->group_by;
+            $name_search=$groupBy;
+            $name=$groupBy;
 //        dd($payrolls);
             $document= Pdf::loadView('reports.payroll_dompdf',compact('payrolls','name_search','name','summaries'))
                 ->setPaper('a3','landscape');
@@ -201,30 +193,10 @@ public $orderBy='id';
         ini_set('memory_limit', '2048M');
         set_time_limit(2000);
 
-        $paySlips=SalaryHistory::when($request->salary_structure,function ($query,){
-            return $query->where('salary_structure',ss(request()->salary_structure));
-        })
-            ->when($request->department,function ($query){
-                return $query->where('department',dept(request()->department));
-            })
-            ->when($request->employee_type,function ($query){
-                return $query->where('employment_type',emp_type(request()->employee_type));
-            })
-            ->when($request->staff_category,function ($query){
-                return $query->where('staff_category',staff_cat(request()->staff_category));
-            })
-
-            ->when($request->grade_level_from,function ($query){
-                return $query->whereBetween('grade_level',[request()->grade_level_from,request()->grade_level_to]);
-            })
-            ->when($request->staff_number,function ($query){
-                return $query->where('pf_number',request()->staff_number);
-            })
-            ->whereBetween('salary_month', [Carbon::parse($request->date_from)->format('F'),Carbon::parse($request->date_to)->format('F')])
-
-            ->whereBetween('salary_year', [Carbon::parse($request->date_from)->format('Y'),Carbon::parse($request->date_to)->format('Y')])
-//            ->limit(4)
-            ->get()->groupBy($request->group_by);
+        $groupBy = $request->group_by ?: 'department';
+        $paySlips=$this->salaryHistoryQuery($request)
+            ->get()
+            ->groupBy($groupBy);
         if ($paySlips->count()>0){
         $user=Auth::user();
         $log=new ActivityLog();
