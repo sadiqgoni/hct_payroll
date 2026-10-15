@@ -65,10 +65,11 @@ class EmployeePromotion extends Component
 //        $promotionObj->staff_number=$this->staff_number;
 //        $promotionObj->status=$this->status;
         $promotionObj->arrears_months = $this->arrears_months;
+        $promotionObj->type = StaffPromotion::detectType($this->payroll_number, $this->salary_structure);
         $promotionObj->save();
         $this->clear();
 
-        $this->alert('success', 'Staff Promotion have been successfully added', ['timer' => 9000]);
+        $this->alert('success', 'Staff Promotion/Conversion have been successfully added', ['timer' => 9000]);
 
     }
     public function clear()
@@ -114,8 +115,9 @@ class EmployeePromotion extends Component
         //        $promotionObj->staff_name=$this->staff_name;
 //        $promotionObj->staff_number=$this->staff_number;
         $promotionObj->status = $this->status;
+        $promotionObj->type = StaffPromotion::detectType($this->payroll_number, $this->salary_structure);
         $promotionObj->save();
-        $this->alert('success', 'Staff Promotion have been successfully updated', ['timer' => 9000]);
+        $this->alert('success', 'Staff Promotion/Conversion have been successfully updated', ['timer' => 9000]);
         $this->close();
     }
     public function deleteId($id)
@@ -179,7 +181,7 @@ class EmployeePromotion extends Component
     {
         $this->ledger_fails = [];
 
-        $this->alert('warning', 'Are you sure you want promote these staffs', [
+        $this->alert('warning', 'Are you sure you want to promote/convert these staffs', [
             'showConfirmButton' => true,
             'onConfirmed' => 'confirm',
             'showCancelButton' => true,
@@ -190,10 +192,12 @@ class EmployeePromotion extends Component
 
     public function confirm()
     {
-        $name = "Staff Promotion";
+        $name = "Staff Promotion/Conversion";
         backup_es($name);
 
-        $promotions = StaffPromotion::all();
+        // Only pending records; already posted or reverted ones must not be applied again
+        $promotions = StaffPromotion::whereNull('status')->get();
+        $posted = 0;
         $this->ledger_fails = array();
 
         foreach ($promotions as $promotion) {
@@ -223,6 +227,13 @@ class EmployeePromotion extends Component
                         $promotion->old_step = $employee->step;
                         $promotion->old_salary_structure = (string) $employee->salary_structure;
                         $promotion->save();
+
+                        // Conversion = staff moving to a different salary structure (e.g. CONPCASS -> CONUASS).
+                        // Decided at posting time so it reflects the employee's structure right now.
+                        $is_conversion = (string) $employee->salary_structure !== (string) $promotion->salary_structure;
+                        if ($is_conversion) {
+                            $this->clearOldStructureAllowances($salary_update, $employee->salary_structure, $employee->grade_level, $a);
+                        }
                         $stepAllowances = StepAllowanceTemplate::where('salary_structure_id', $promotion->salary_structure)
                             ->where('grade_level', $promotion->level)
                             ->where('step', $promotion->step)
@@ -276,19 +287,19 @@ class EmployeePromotion extends Component
                                     }
                                     //check union
                                     elseif (UnionDeduction::where('deduction_id', $dedTemp->deduction_id)->get()->count() > 0) {
-                                        if (UnionDeduction::where('deduction_id', $dedTemp->deduction_id)->where('union_id', $this->staff_union)->get()->count() > 0) {
+                                        if (UnionDeduction::where('deduction_id', $dedTemp->deduction_id)->where('union_id', $employee->staff_union)->get()->count() > 0) {
                                             $amount = $amount;
                                         } else {
                                             $amount = 0.00;
                                         }
                                     }
                                 } else {
-                                    $amount = $salary["D$deduction->id"];
+                                    // Deduction not in the template: keep what the staff already has
+                                    $amount = $salary_update["D$deduction->id"] ?? 0;
                                 }
                             }
                             $salary_update["D$deduction->id"] = $amount;
                             $total_deduct += round($amount, 2);
-                            $salary->save();
                         }
 
                         $employee->grade_level = $promotion->level;
@@ -316,8 +327,10 @@ class EmployeePromotion extends Component
                         }
 
                         $salary_update->save();
+                        $promotion->type = $is_conversion ? 'conversion' : 'promotion';
                         $promotion->status = 1;
                         $promotion->save();
+                        $posted++;
                     }
                 } else {
                     $data = [
@@ -333,9 +346,29 @@ class EmployeePromotion extends Component
         $user = Auth::user();
         $log = new ActivityLog();
         $log->user_id = $user->id;
-        $log->action = "Promoted " . StaffPromotion::get()->count() . " staffs";
+        $log->action = "Promoted/converted " . $posted . " staffs";
         $log->save();
         $this->alert('success', 'Record have been successfully posted to ledger');
+    }
+
+    /**
+     * When a staff moves to a different salary structure, allowances that came from the old
+     * structure's template (and are not in the new one) no longer apply, so zero them.
+     * Individually assigned allowances are not in any template and are kept. Deductions are left
+     * alone: statutory ones (NHF, pension) still apply and are recalculated if the new template defines them.
+     */
+    private function clearOldStructureAllowances(SalaryUpdate $salary_update, $fromStructure, $fromLevel, $keepAllowances): void
+    {
+        $keepIds = $keepAllowances->pluck('allowance_id')->all();
+
+        $fromAllowances = SalaryAllowanceTemplate::where('salary_structure_id', $fromStructure)
+            ->whereRaw('? between grade_level_from and grade_level_to', [$fromLevel])
+            ->get();
+        foreach ($fromAllowances as $allow) {
+            if (!in_array($allow->allowance_id, $keepIds)) {
+                $salary_update["A$allow->allowance_id"] = 0;
+            }
+        }
     }
 
     /**
@@ -367,7 +400,7 @@ class EmployeePromotion extends Component
             return;
         }
         $employee = \App\Models\EmployeeProfile::where('payroll_number', $promotion->payroll_number)->first();
-        $salary_update = SalaryUpdate::where('employee_id', $employee->id)->first();
+        $salary_update = $employee ? SalaryUpdate::where('employee_id', $employee->id)->first() : null;
         if (!$employee || !$salary_update) {
             $this->alert('warning', 'Employee or salary record not found.', ['timer' => 5000]);
             return;
@@ -383,6 +416,10 @@ class EmployeePromotion extends Component
         $annual_salary = $salary['Step' . $old_step] ?? 0;
         $basic_salary = round($annual_salary / 12, 2);
         $a = SalaryAllowanceTemplate::where('salary_structure_id', $old_ss)->whereRaw('? between grade_level_from and grade_level_to', [$old_level])->get();
+        // Reverting a conversion: drop allowances that only existed in the structure being left
+        if ((string) $old_ss !== (string) $employee->salary_structure) {
+            $this->clearOldStructureAllowances($salary_update, $employee->salary_structure, $employee->grade_level, $a);
+        }
         $total_allow = 0;
         foreach ($a as $allow) {
             if ($allow->allowance_type == 1) {
@@ -423,7 +460,7 @@ class EmployeePromotion extends Component
                         }
                     }
                 } else {
-                    $amount = $salary['D' . $deduction->id] ?? 0;
+                    $amount = $salary_update['D' . $deduction->id] ?? 0;
                 }
             }
             $salary_update['D' . $deduction->id] = $amount;

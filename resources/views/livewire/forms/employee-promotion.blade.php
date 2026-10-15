@@ -105,6 +105,7 @@
                         <th>Grade Level</th>
                         <th>Step</th>
                         <th>Arrears Months</th>
+                        <th>Type</th>
                         <th>status</th>
                         <th>Action</th>
                     </tr>
@@ -118,6 +119,13 @@
                             <td>{{$promotion->level}}</td>
                             <td>{{$promotion->step}}</td>
                             <td>{{$promotion->arrears_months}}</td>
+                            <td>
+                                @if($promotion->type == 'conversion')
+                                    <span class="badge badge-info">Conversion</span>
+                                @else
+                                    <span class="badge badge-secondary">Promotion</span>
+                                @endif
+                            </td>
                             <td>
                                 @if($promotion->status == 1)
                                     <span class="badge badge-success"><em>Done</em></span>
@@ -142,20 +150,20 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" style="color: red">Empty</td>
+                            <td colspan="9" style="color: red">Empty</td>
                         </tr>
                     @endforelse
                 </tbody>
                 <tfoot>
                     <tr style="border: 0 !important;">
                         @if($promotions->count() > 1)
-                            <td colspan="6" style="border: 0 !important;"><Button wire:click.prevent="clear_record()"
+                            <td colspan="9" style="border: 0 !important;"><Button wire:click.prevent="clear_record()"
                                     class="btn btn-danger float-right">Clear Record</Button></td>
 
                         @endif
                     </tr>
                     <tr>
-                        <td colspan="6">{{$promotions->links()}}</td>
+                        <td colspan="9">{{$promotions->links()}}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -198,7 +206,7 @@
                     <form wire:submit.prevent="store">
                         <fieldset>
                             <legend>
-                                <h6 class="">Add Staff Promotion</h6>
+                                <h6 class="">Add Staff Promotion / Conversion</h6>
                             </legend>
                             <div class="row">
                                 <div class="col-12 col-md-6">
@@ -346,7 +354,7 @@
             <form wire:submit.prevent="update({{$ids}})">
                 <fieldset>
                     <legend>
-                        <h6 class="">Update Staff Promotion</h6>
+                        <h6 class="">Update Staff Promotion / Conversion</h6>
                     </legend>
                     <div class="row">
                         <div class="col-12 col-md-6">
@@ -489,9 +497,9 @@
 @endif
 
 @section('title')
-    Staff Promotion
+    Staff Promotion / Conversion
 @endsection
 @section('page_title')
-    Payroll Update / Staff Promotion
+    Payroll Update / Staff Promotion / Conversion
 @endsection
 </div>
