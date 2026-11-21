@@ -12,8 +12,8 @@ return new class extends Migration
             Schema::create('salary_posting_batches', function (Blueprint $table) {
                 $table->id();
                 $table->string('batch_name');
-                $table->string('salary_month');
-                $table->string('salary_year');
+                $table->string('salary_month', 20);
+                $table->string('salary_year', 10);
                 $table->string('description')->nullable();
                 $table->json('selection_filters')->nullable();
                 $table->unsignedBigInteger('created_by')->nullable();
