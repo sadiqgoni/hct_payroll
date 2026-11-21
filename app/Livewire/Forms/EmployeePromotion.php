@@ -232,7 +232,13 @@ class EmployeePromotion extends Component
                         // Decided at posting time so it reflects the employee's structure right now.
                         $is_conversion = (string) $employee->salary_structure !== (string) $promotion->salary_structure;
                         if ($is_conversion) {
-                            $this->clearOldStructureAllowances($salary_update, $employee->salary_structure, $employee->grade_level, $a);
+                            // Conversion: wipe every former allowance; the new template re-assigns what applies
+                            foreach (Allowance::pluck('id') as $allowanceId) {
+                                $salary_update["A$allowanceId"] = 0;
+                            }
+                            // Deductions defined in any salary structure template are structure-specific.
+                            // Those not in the new template are cleared; deductions in no template are kept.
+                            $templatedDeductionIds = SalaryDeductionTemplate::distinct()->pluck('deduction_id')->all();
                         }
                         $stepAllowances = StepAllowanceTemplate::where('salary_structure_id', $promotion->salary_structure)
                             ->where('grade_level', $promotion->level)
@@ -294,8 +300,13 @@ class EmployeePromotion extends Component
                                         }
                                     }
                                 } else {
-                                    // Deduction not in the template: keep what the staff already has
-                                    $amount = $salary_update["D$deduction->id"] ?? 0;
+                                    if ($is_conversion && in_array($deduction->id, $templatedDeductionIds)) {
+                                        // Belonged to another structure's template, not the new one
+                                        $amount = 0;
+                                    } else {
+                                        // Not defined in any template: keep what the staff already has
+                                        $amount = $salary_update["D$deduction->id"] ?? 0;
+                                    }
                                 }
                             }
                             $salary_update["D$deduction->id"] = $amount;
