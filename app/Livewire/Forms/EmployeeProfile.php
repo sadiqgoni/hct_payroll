@@ -944,7 +944,7 @@ class EmployeeProfile extends Component
     public function render()
     {
         $salary_structures = SalaryStructure::where('status', 1)->get();
-        $this->states = State::where('status', 1)->get();
+        $this->states = State::where('country', 1)->get();
 
         $ranks = Rank::where('status', 1)->get();
         $categories = StaffCategory::where('status', 1)->get();
