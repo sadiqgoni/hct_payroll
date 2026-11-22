@@ -163,7 +163,17 @@ class EmployeePromotion extends Component
         //        Excel::import(new PromotionImport, $this->importFilePath);
 
         $import = new PromotionImport();
-        $import->import($this->importFilePath);
+        try {
+            $import->import($this->importFilePath);
+        } catch (\Throwable $e) {
+            // Corrupted / unreadable / wrongly formatted file: tell the user instead of crashing
+            \Illuminate\Support\Facades\Log::warning('Promotion upload failed: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Storage::delete($this->importFilePath);
+            $this->reset('importFile');
+            $this->upload_errors = [];
+            $this->alert('error', 'The file could not be read. It may be corrupted or not in the sample format. Please download the sample file, fill it in again and re-upload.', ['timer' => 8000]);
+            return;
+        }
         $this->upload_errors = $import->failures();
         //        dd($import->failures()->collect());
         $failure_array = array();

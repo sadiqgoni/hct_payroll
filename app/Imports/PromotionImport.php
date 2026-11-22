@@ -37,6 +37,7 @@ class PromotionImport implements ToModel, WithHeadingRow, WithBatchInserts, With
             'salary_structure'=>$ss->id,
             'level'=>$row['grade_level'],
             'step'=>$row['step'],
+            'arrears_months'=>is_numeric($row['arrears_months'] ?? null) ? (int) $row['arrears_months'] : 0,
             'type'=>StaffPromotion::detectType($row['payroll_number'], $ss->id),
         ]);
     }
@@ -118,6 +119,7 @@ class PromotionImport implements ToModel, WithHeadingRow, WithBatchInserts, With
             'salary_structure'=>'required|exists:salary_structures,name',
             'grade_level'=>'required',
             'step'=>'required|integer|min:1',
+            'arrears_months'=>'nullable|numeric|min:0',
 //            'payroll_number' => ['required',unique],
             // Above is alias for as it always validates in batches
 //            '*.1' => Rule::in(['patrick@maatwebsite.nl']),
