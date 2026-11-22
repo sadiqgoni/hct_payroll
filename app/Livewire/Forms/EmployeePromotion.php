@@ -243,8 +243,11 @@ class EmployeePromotion extends Component
                         $is_conversion = (string) $employee->salary_structure !== (string) $promotion->salary_structure;
                         if ($is_conversion) {
                             // Conversion: wipe every former allowance; the new template re-assigns what applies
+                            $salaryUpdateColumns = \Illuminate\Support\Facades\Schema::getColumnListing('salary_updates');
                             foreach (Allowance::pluck('id') as $allowanceId) {
-                                $salary_update["A$allowanceId"] = 0;
+                                if (in_array("A$allowanceId", $salaryUpdateColumns)) {
+                                    $salary_update["A$allowanceId"] = 0;
+                                }
                             }
                             // Deductions defined in any salary structure template are structure-specific.
                             // Those not in the new template are cleared; deductions in no template are kept.
